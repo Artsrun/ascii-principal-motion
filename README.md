@@ -1,28 +1,25 @@
 # ASCII · Principal Motion
 
-Interactive spinning torus rendered in pure ASCII using the classic a1k0n (2011) math.
+Interactive 3D surfaces rendered in pure ASCII using the classic a1k0n projection pipeline (surface sampling → perspective → 1/z → luminance).
 
-**Live demo (enable Pages first):**  
-https://artsrun.github.io/ascii-principal-motion/
+## Live demos
+(Enable GitHub Pages from Settings → Pages → main / root if not already live)
 
-## Real-device interaction
-- **Tap** — pause / resume principal motion
+| Demo | URL | Shape |
+|------|-----|-------|
+| **Donut** | https://artsrun.github.io/ascii-principal-motion/ | Classic torus |
+| **Trefoil** | https://artsrun.github.io/ascii-principal-motion/trefoil.html | Tubular trefoil knot |
+
+## Interaction (identical on both)
+- **Tap** — pause / resume
 - **Drag** — steer angular velocity
-- **Double-tap** — reset angles & speeds
-- **Long-press** — show the math overlay
+- **Double-tap** — reset
+- **Long-press** — math overlay
 
-Targets 30–60 fps on modern phones. No libraries. Surface sampling + perspective + 1/z depth + simple diffuse luminance.
+Same principle, different center path. The trefoil is the natural next step after the torus: a circle of radius R₁ swept along a more interesting curve.
 
-## Skill set created
-- New skill: `ascii-donut-web` (interactive ASCII / lightweight point torus for mobile web)
-- Composes with existing `4dgs-web` skill for progression toward real Gaussian / 4D deformation fields on the web.
+## Skills
+- `ascii-donut-web` — owns the interactive ASCII / point-cloud torus + mobile grammar
+- `4dgs-web` — next step when you leave pure samples for real Gaussians / deformation fields
 
-ASCII principal motion is the pedagogical “training wheels” before point-cloud or full splat viewers.
-
-## Enable GitHub Pages
-1. Open **Settings → Pages**
-2. Source: **Deploy from a branch**
-3. Branch: `main` / `(root)`
-4. Save — the site is live in about a minute at the URL above.
-
-Math source: https://www.a1k0n.net/2011/07/20/donut-math.html
+Math origin: https://www.a1k0n.net/2011/07/20/donut-math.html
