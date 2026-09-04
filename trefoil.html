@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0a0a0b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="ASCII tubular trefoil knot — same principal motion as the donut, far more interesting shape">
+<title>ASCII · Trefoil</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #0a0a0b;
+  --surface: #141416;
+  --text: #e8e8ea;
+  --dim: #9a9aa0;
+  --faint: #5c5c64;
+  --accent: #a78bfa;
+  --ok: #34d399;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html, body {
+  height:100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, system-ui, sans-serif;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  touch-action: none;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--safe-t);
+  padding-bottom: var(--safe-b);
+}
+
+header {
+  flex: 0 0 auto;
+  padding: 12px 16px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 5;
+}
+.logo {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.logo span {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity:1; }
+  50% { opacity:0.4; }
+}
+.badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  background: var(--surface);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #222;
+}
+
+#ascii-wrap {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 0;
+}
+
+#ascii {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: clamp(6.5px, 2.0vw, 10.5px);
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  white-space: pre;
+  color: #d4d4d8;
+  text-align: center;
+  margin: 0;
+  padding: 6px;
+  will-change: contents;
+}
+
+#hud {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--faint);
+  line-height: 1.5;
+  pointer-events: none;
+  background: rgba(10,10,11,0.72);
+  padding: 6px 10px;
+  border-radius: 8px;
+  backdrop-filter: blur(6px);
+}
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10,10,11,0.93);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 20;
+  text-align: center;
+}
+#overlay.show { display: flex; }
+#overlay h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--accent);
+}
+#overlay p {
+  font-size: 13px;
+  color: var(--dim);
+  max-width: 340px;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+#overlay code {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: #c4b5fd;
+  display: block;
+  margin: 10px 0;
+  text-align: left;
+  background: var(--surface);
+  padding: 10px 12px;
+  border-radius: 8px;
+  line-height: 1.45;
+}
+.btn-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+.btn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  background: var(--accent);
+  color: #0a0a0b;
+}
+.btn.ghost {
+  background: transparent;
+  color: var(--dim);
+  border: 1px solid #333;
+}
+
+footer {
+  flex: 0 0 auto;
+  padding: 8px 16px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--faint);
+  z-index: 5;
+}
+footer .hint {
+  font-family: 'IBM Plex Mono', monospace;
+}
+.dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--faint);
+  display: inline-block;
+  margin-right: 6px;
+}
+.dot.on { background: var(--ok); }
+
+#ascii-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.5) 100%);
+}
+</style>
+</head>
+<body>
+<div id="stage">
+  <header>
+    <div class="logo"><span></span> ASCII · Trefoil</div>
+    <div class="badge" id="fps">-- fps</div>
+  </header>
+
+  <div id="ascii-wrap">
+    <pre id="ascii"></pre>
+    <div id="hud">
+      A <span id="va">0.00</span> · B <span id="vb">0.00</span><br>
+      samples <span id="vs">~0</span> · <span id="vstate">spin</span>
+    </div>
+  </div>
+
+  <footer>
+    <div><span class="dot on" id="live-dot"></span><span id="status">tap · drag · long-press</span></div>
+    <div class="hint">tube on trefoil · same principle</div>
+  </footer>
+</div>
+
+<div id="overlay">
+  <h2>Tubular Trefoil</h2>
+  <p>Same projection pipeline as the classic donut — only the center path changed from a circle to a trefoil knot. The tube is still a circle of radius R₁ swept along that path.</p>
+  <code>
+trefoil(t):<br>
+  x = sin t + 2 sin 2t<br>
+  y = cos t − 2 cos 2t<br>
+  z = −sin 3t<br><br>
+then rotate A,B → project → 1/z → luminance
+  </code>
+  <p>Tap = pause · Drag = steer · Double-tap = reset</p>
+  <div class="btn-row">
+    <button class="btn" id="close-ov">Got it</button>
+    <button class="btn ghost" id="to-donut">← back to donut</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const CHARS = ". ,-~:;=!*#$@".replace(/ /g,'');
+  const R1 = 0.55;
+  const K2 = 7.8;
+  let K1 = 38;
+
+  // denser for solid tube look on phone
+  const T_STEP   = 0.022;
+  const PHI_STEP = 0.13;
+
+  let COLS = 80, ROWS = 28;
+  let A = 0.4, B = 0.7;
+  let dA = 0.028, dB = 0.019;
+  let paused = false;
+  let userAx = 0, userAy = 0;
+
+  let buf, zbuf;
+  const asciiEl = document.getElementById("ascii");
+  const fpsEl   = document.getElementById("fps");
+  const va = document.getElementById("va");
+  const vb = document.getElementById("vb");
+  const vs = document.getElementById("vs");
+  const vstate = document.getElementById("vstate");
+  const status = document.getElementById("status");
+  const liveDot = document.getElementById("live-dot");
+  const overlay = document.getElementById("overlay");
+
+  function resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight * 0.74;
+    const cellW = Math.max(6, Math.min(10.5, w / 72));
+    COLS = Math.max(42, Math.min(110, Math.floor(w / cellW) | 1));
+    ROWS = Math.max(20, Math.min(38, Math.floor(h / (cellW * 1.55)) | 1));
+    K1 = COLS * 0.48;
+    buf  = new Array(COLS * ROWS);
+    zbuf = new Float32Array(COLS * ROWS);
+    asciiEl.style.fontSize = cellW + "px";
+  }
+
+  function clearBuffers() {
+    buf.fill(" ");
+    zbuf.fill(0);
+  }
+
+  function trefoil(t) {
+    const s = Math.sin(t), c = Math.cos(t);
+    const s2 = Math.sin(2*t), c2 = Math.cos(2*t);
+    const s3 = Math.sin(3*t);
+    const sc = 1.05;
+    return {
+      x: sc * (s + 2 * s2),
+      y: sc * (c - 2 * c2),
+      z: sc * (-s3)
+    };
+  }
+
+  function renderFrame() {
+    clearBuffers();
+    const cosA = Math.cos(A), sinA = Math.sin(A);
+    const cosB = Math.cos(B), sinB = Math.sin(B);
+    let samples = 0;
+
+    for (let t = 0; t < 6.2832; t += T_STEP) {
+      const p = trefoil(t);
+      const p2 = trefoil(t + 0.01);
+      let tx = p2.x - p.x, ty = p2.y - p.y, tz = p2.z - p.z;
+      const tl = Math.sqrt(tx*tx + ty*ty + tz*tz) || 1;
+      tx /= tl; ty /= tl; tz /= tl;
+
+      let nx = -ty, ny = tx, nz = 0;
+      let nl = Math.sqrt(nx*nx + ny*ny) || 1;
+      nx /= nl; ny /= nl;
+      let bx = ty*nz - tz*ny;
+      let by = tz*nx - tx*nz;
+      let bz = tx*ny - ty*nx;
+      const bl = Math.sqrt(bx*bx + by*by + bz*bz) || 1;
+      bx /= bl; by /= bl; bz /= bl;
+
+      for (let phi = 0; phi < 6.2832; phi += PHI_STEP) {
+        const cphi = Math.cos(phi), sphi = Math.sin(phi);
+        let x = p.x + R1 * (cphi * nx + sphi * bx);
+        let y = p.y + R1 * (cphi * ny + sphi * by);
+        let z = p.z + R1 * (cphi * nz + sphi * bz);
+
+        let y1 = y * cosA - z * sinA;
+        let z1 = y * sinA + z * cosA;
+        let x1 = x;
+        let x2 = x1 * cosB - y1 * sinB;
+        let y2 = x1 * sinB + y1 * cosB;
+        let z2 = z1;
+
+        const D = 1 / (z2 + K2);
+
+        let nxx = cphi * nx + sphi * bx;
+        let nyy = cphi * ny + sphi * by;
+        let nzz = cphi * nz + sphi * bz;
+        let ny1n = nyy * cosA - nzz * sinA;
+        let nz1 = nyy * sinA + nzz * cosA;
+        let nx1 = nxx;
+        let nx2 = nx1 * cosB - ny1n * sinB;
+        let ny2 = nx1 * sinB + ny1n * cosB;
+        let nz2 = nz1;
+
+        const Lraw = ny2 - nz2;
+        const Nidx = Math.max(0, Math.min(11, Math.floor(Lraw * 7.2 + 3.5)));
+
+        const xp = (COLS / 2 + K1 * D * x2) | 0;
+        const yp = (ROWS / 2 - (K1 * 0.52) * D * y2) | 0;
+
+        if (yp >= 0 && yp < ROWS && xp >= 0 && xp < COLS) {
+          const o = xp + COLS * yp;
+          if (D > zbuf[o]) {
+            zbuf[o] = D;
+            buf[o] = CHARS[Nidx];
+            samples++;
+          }
+        }
+      }
+    }
+
+    let out = "";
+    for (let r = 0; r < ROWS; r++) {
+      out += buf.slice(r * COLS, r * COLS + COLS).join("") + "\n";
+    }
+    asciiEl.textContent = out;
+    vs.textContent = samples;
+  }
+
+  let last = performance.now();
+  let frames = 0, acc = 0;
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+
+    if (!paused) {
+      A += (dA + userAy * 0.7) * (dt * 60);
+      B += (dB + userAx * 0.7) * (dt * 60);
+      userAx *= 0.90;
+      userAy *= 0.90;
+    }
+
+    renderFrame();
+
+    va.textContent = A.toFixed(2);
+    vb.textContent = B.toFixed(2);
+    vstate.textContent = paused ? "paused" : "spin";
+    liveDot.classList.toggle("on", !paused);
+
+    frames++;
+    acc += dt;
+    if (acc >= 0.5) {
+      fpsEl.textContent = Math.round(frames / acc) + " fps";
+      frames = 0; acc = 0;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  let ptrId = null;
+  let startX = 0, startY = 0, startT = 0;
+  let moved = false;
+  let lastTap = 0;
+  let longTimer = null;
+  const wrap = document.getElementById("ascii-wrap");
+
+  function onDown(e) {
+    if (ptrId !== null) return;
+    ptrId = e.pointerId;
+    startX = e.clientX; startY = e.clientY;
+    startT = performance.now();
+    moved = false;
+    wrap.setPointerCapture(ptrId);
+    longTimer = setTimeout(() => {
+      if (!moved) {
+        overlay.classList.add("show");
+        if (navigator.vibrate) navigator.vibrate(12);
+      }
+    }, 520);
+  }
+
+  function onMove(e) {
+    if (e.pointerId !== ptrId) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (Math.abs(dx) + Math.abs(dy) > 8) {
+      moved = true;
+      clearTimeout(longTimer);
+      userAx = dx * 0.00085;
+      userAy = -dy * 0.00085;
+      status.textContent = "steering…";
+    }
+  }
+
+  function onUp(e) {
+    if (e.pointerId !== ptrId) return;
+    clearTimeout(longTimer);
+    const dt = performance.now() - startT;
+    const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
+
+    if (!moved && dist < 12 && dt < 280) {
+      const now = performance.now();
+      if (now - lastTap < 320) {
+        A = 0.4; B = 0.7;
+        dA = 0.028; dB = 0.019;
+        userAx = userAy = 0;
+        paused = false;
+        status.textContent = "reset";
+        if (navigator.vibrate) navigator.vibrate([8, 30, 8]);
+      } else {
+        paused = !paused;
+        status.textContent = paused ? "paused · tap to spin" : "spinning · drag to steer";
+        if (navigator.vibrate) navigator.vibrate(10);
+      }
+      lastTap = now;
+    }
+    ptrId = null;
+    setTimeout(() => { if (!paused) status.textContent = "tap · drag · long-press"; }, 1100);
+  }
+
+  wrap.addEventListener("pointerdown", onDown);
+  wrap.addEventListener("pointermove", onMove);
+  wrap.addEventListener("pointerup", onUp);
+  wrap.addEventListener("pointercancel", onUp);
+
+  document.getElementById("close-ov").onclick = () => overlay.classList.remove("show");
+  document.getElementById("to-donut").onclick = () => {
+    overlay.classList.remove("show");
+    status.textContent = "same principle · different path";
+  };
+
+  resize();
+  window.addEventListener("resize", resize);
+  document.body.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
+
+  requestAnimationFrame(loop);
+
+  setTimeout(() => {
+    if (!localStorage.getItem("trefoil-seen")) {
+      overlay.classList.add("show");
+      localStorage.setItem("trefoil-seen", "1");
+    }
+  }, 800);
+})();
+</script>
+</body>
+</html>

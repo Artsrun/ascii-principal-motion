@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0a0a0b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="ASCII Hold — real-world-like free orbit of everyday objects, optional spin, same a1k0n projection principle">
+<title>ASCII · Hold</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #0a0a0b;
+  --surface: #141416;
+  --surface-2: #1c1c1f;
+  --text: #e8e8ea;
+  --dim: #9a9aa0;
+  --faint: #5c5c64;
+  --accent: #a78bfa;
+  --ok: #34d399;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html, body {
+  height:100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, system-ui, sans-serif;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  touch-action: none;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--safe-t);
+  padding-bottom: var(--safe-b);
+}
+
+header {
+  flex: 0 0 auto;
+  padding: 10px 14px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 5;
+}
+.logo {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.logo span {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+}
+.badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  background: var(--surface);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #222;
+}
+
+.picker {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+  padding: 4px 14px 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.picker::-webkit-scrollbar { display: none; }
+.chip {
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 12px;
+  border-radius: 20px;
+  border: 1px solid #2a2a2e;
+  background: var(--surface);
+  color: var(--dim);
+  cursor: pointer;
+}
+.chip.active {
+  background: rgba(167,139,250,0.18);
+  border-color: var(--accent);
+  color: #e9e0ff;
+}
+
+#ascii-wrap {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 0;
+}
+
+#ascii {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: clamp(6.5px, 2.0vw, 10.5px);
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  white-space: pre;
+  color: #d4d4d8;
+  text-align: center;
+  margin: 0;
+  padding: 4px;
+  will-change: contents;
+}
+
+#hud {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--faint);
+  line-height: 1.5;
+  pointer-events: none;
+  background: rgba(10,10,11,0.72);
+  padding: 6px 10px;
+  border-radius: 8px;
+  backdrop-filter: blur(6px);
+}
+
+.controls {
+  flex: 0 0 auto;
+  padding: 6px 14px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  z-index: 5;
+}
+.mode-btn {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 560;
+  padding: 9px 16px;
+  border-radius: 12px;
+  border: 1px solid #2a2a2e;
+  background: var(--surface);
+  color: var(--dim);
+  cursor: pointer;
+  min-width: 88px;
+}
+.mode-btn.active {
+  background: rgba(52,211,153,0.15);
+  border-color: var(--ok);
+  color: #a7f3d0;
+}
+.hint {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--faint);
+  text-align: right;
+  line-height: 1.35;
+}
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10,10,11,0.94);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 20;
+  text-align: center;
+}
+#overlay.show { display: flex; }
+#overlay h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--accent);
+}
+#overlay p {
+  font-size: 13px;
+  color: var(--dim);
+  max-width: 340px;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+#overlay code {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: #c4b5fd;
+  display: block;
+  margin: 10px 0;
+  text-align: left;
+  background: var(--surface);
+  padding: 10px 12px;
+  border-radius: 8px;
+  line-height: 1.45;
+}
+.btn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  background: var(--accent);
+  color: #0a0a0b;
+  margin-top: 12px;
+}
+
+#ascii-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.48) 100%);
+}
+</style>
+</head>
+<body>
+<div id="stage">
+  <header>
+    <div class="logo"><span></span> ASCII · Hold</div>
+    <div class="badge" id="fps">-- fps</div>
+  </header>
+
+  <div class="picker" id="picker">
+    <button class="chip active" data-obj="torus">Torus</button>
+    <button class="chip" data-obj="trefoil">Trefoil</button>
+    <button class="chip" data-obj="sphere">Sphere</button>
+    <button class="chip" data-obj="mug">Mug</button>
+  </div>
+
+  <div id="ascii-wrap">
+    <pre id="ascii"></pre>
+    <div id="hud">
+      <span id="vobj">torus</span> · <span id="vmode">hold</span><br>
+      samples <span id="vs">0</span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="mode-btn" id="spin-btn">Spin off</button>
+    <div class="hint" id="status">drag to turn · like holding an object</div>
+  </div>
+</div>
+
+<div id="overlay">
+  <h2>Hold an object</h2>
+  <p>Same projection as the classic donut. Now you can freely orient everyday shapes — with or without auto-spin.</p>
+  <code>
+Hold mode  → drag = turn the object<br>
+Spin mode  → gentle continuous rotation<br>
+            + drag still steers it<br><br>
+Objects are still pure surface samples<br>
+(torus / trefoil / sphere / mug)
+  </code>
+  <p>Double-tap resets orientation. Long-press shows this again.</p>
+  <button class="btn" id="close-ov">Got it</button>
+</div>
+
+<script>
+(function () {
+  const CHARS = ". ,-~:;=!*#$@".replace(/ /g,'');
+  let K1 = 34, K2 = 6.5;
+  let COLS = 80, ROWS = 28;
+
+  let rotX = 0.35, rotY = 0.6;
+  let spinOn = false;
+  let dSpinX = 0.012, dSpinY = 0.018;
+  let obj = "torus";
+
+  let buf, zbuf;
+  const asciiEl = document.getElementById("ascii");
+  const fpsEl   = document.getElementById("fps");
+  const vs = document.getElementById("vs");
+  const vobj = document.getElementById("vobj");
+  const vmode = document.getElementById("vmode");
+  const status = document.getElementById("status");
+  const spinBtn = document.getElementById("spin-btn");
+  const overlay = document.getElementById("overlay");
+
+  function sampleTorus(out) {
+    const R1 = 0.55, R2 = 1.35;
+    for (let j = 0; j < 6.28; j += 0.065) {
+      const cj = Math.cos(j), sj = Math.sin(j);
+      for (let i = 0; i < 6.28; i += 0.055) {
+        const ci = Math.cos(i), si = Math.sin(i);
+        const h = R2 + R1 * ci;
+        out.push({
+          x: h * cj,
+          y: R1 * si,
+          z: -h * sj,
+          nx: ci * cj,
+          ny: si,
+          nz: -ci * sj
+        });
+      }
+    }
+  }
+
+  function sampleTrefoil(out) {
+    const R1 = 0.38, sc = 0.78;
+    for (let t = 0; t < 6.2832; t += 0.045) {
+      const s = Math.sin(t), c = Math.cos(t);
+      const s2 = Math.sin(2*t), c2 = Math.cos(2*t);
+      const s3 = Math.sin(3*t);
+      const px = sc * (s + 2*s2), py = sc * (c - 2*c2), pz = sc * (-s3);
+      const t2 = t + 0.012;
+      const s_ = Math.sin(t2), c_ = Math.cos(t2);
+      const s2_ = Math.sin(2*t2), c2_ = Math.cos(2*t2);
+      const s3_ = Math.sin(3*t2);
+      let tx = sc*(s_ + 2*s2_) - px, ty = sc*(c_ - 2*c2_) - py, tz = sc*(-s3_) - pz;
+      const tl = Math.hypot(tx,ty,tz) || 1;
+      tx/=tl; ty/=tl; tz/=tl;
+      let nx = -ty, ny = tx, nz = 0;
+      const nl = Math.hypot(nx,ny) || 1;
+      nx/=nl; ny/=nl;
+      let bx = ty*nz - tz*ny, by = tz*nx - tx*nz, bz = tx*ny - ty*nx;
+      const bl = Math.hypot(bx,by,bz) || 1;
+      bx/=bl; by/=bl; bz/=bl;
+      for (let phi = 0; phi < 6.28; phi += 0.22) {
+        const cp = Math.cos(phi), sp = Math.sin(phi);
+        out.push({
+          x: px + R1*(cp*nx + sp*bx),
+          y: py + R1*(cp*ny + sp*by),
+          z: pz + R1*(cp*nz + sp*bz),
+          nx: cp*nx + sp*bx,
+          ny: cp*ny + sp*by,
+          nz: cp*nz + sp*bz
+        });
+      }
+    }
+  }
+
+  function sampleSphere(out) {
+    const R = 1.35;
+    for (let j = 0; j < Math.PI; j += 0.085) {
+      const sj = Math.sin(j), cj = Math.cos(j);
+      for (let i = 0; i < 6.28; i += 0.085) {
+        const ci = Math.cos(i), si = Math.sin(i);
+        out.push({
+          x: R * sj * ci,
+          y: R * cj,
+          z: R * sj * si,
+          nx: sj * ci,
+          ny: cj,
+          nz: sj * si
+        });
+      }
+    }
+  }
+
+  function sampleMug(out) {
+    const Rb = 0.95, H = 1.55;
+    for (let y = -H/2; y <= H/2; y += 0.09) {
+      for (let i = 0; i < 6.28; i += 0.10) {
+        const ci = Math.cos(i), si = Math.sin(i);
+        out.push({ x: Rb*ci, y: y, z: Rb*si, nx: ci, ny: 0, nz: si });
+      }
+    }
+    const R1 = 0.16, R2 = 0.95;
+    for (let j = 0; j < 6.28; j += 0.14) {
+      const cj = Math.cos(j), sj = Math.sin(j);
+      for (let i = 0; i < 6.28; i += 0.18) {
+        const ci = Math.cos(i), si = Math.sin(i);
+        const h = R2 + R1*ci;
+        out.push({
+          x: h * cj,
+          y: H/2 + R1*si,
+          z: -h * sj,
+          nx: ci * cj,
+          ny: si,
+          nz: -ci * sj
+        });
+      }
+    }
+    for (let r = 0.1; r < Rb; r += 0.12) {
+      for (let i = 0; i < 6.28; i += 0.18) {
+        const ci = Math.cos(i), si = Math.sin(i);
+        out.push({ x: r*ci, y: -H/2, z: r*si, nx: 0, ny: -1, nz: 0 });
+      }
+    }
+    for (let a = -0.9; a < 0.9; a += 0.12) {
+      const cx = Rb + 0.55*Math.cos(a);
+      const cy = 0.15*Math.sin(a*1.4);
+      for (let p = 0; p < 6.28; p += 0.35) {
+        const cp = Math.cos(p), sp = Math.sin(p);
+        out.push({
+          x: cx + 0.14*cp,
+          y: cy + 0.14*sp,
+          z: 0.14*sp*0.3,
+          nx: cp, ny: sp, nz: 0
+        });
+      }
+    }
+  }
+
+  const samplers = { torus: sampleTorus, trefoil: sampleTrefoil, sphere: sampleSphere, mug: sampleMug };
+  let points = [];
+
+  function rebuild() {
+    points = [];
+    samplers[obj](points);
+    vobj.textContent = obj;
+  }
+
+  function resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight * 0.62;
+    const cellW = Math.max(6, Math.min(10.5, w / 72));
+    COLS = Math.max(44, Math.min(110, Math.floor(w / cellW) | 1));
+    ROWS = Math.max(20, Math.min(36, Math.floor(h / (cellW * 1.55)) | 1));
+    K1 = COLS * 0.46;
+    buf  = new Array(COLS * ROWS);
+    zbuf = new Float32Array(COLS * ROWS);
+    asciiEl.style.fontSize = cellW + "px";
+  }
+
+  function clearBuffers() {
+    buf.fill(" ");
+    zbuf.fill(0);
+  }
+
+  function renderFrame() {
+    clearBuffers();
+    const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+    const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+    let samples = 0;
+
+    for (let k = 0; k < points.length; k++) {
+      const p = points[k];
+      let x1 = p.x * cosY - p.z * sinY;
+      let z1 = p.x * sinY + p.z * cosY;
+      let y1 = p.y;
+      let y2 = y1 * cosX - z1 * sinX;
+      let z2 = y1 * sinX + z1 * cosX;
+      let x2 = x1;
+
+      const D = 1 / (z2 + K2);
+      let nx1 = p.nx * cosY - p.nz * sinY;
+      let nz1 = p.nx * sinY + p.nz * cosY;
+      let ny1 = p.ny;
+      let ny2 = ny1 * cosX - nz1 * sinX;
+      let nz2 = ny1 * sinX + nz1 * cosX;
+
+      const Lraw = ny2 - nz2;
+      const Nidx = Math.max(0, Math.min(11, Math.floor(Lraw * 7.5 + 3.2)));
+
+      const xp = (COLS / 2 + K1 * D * x2) | 0;
+      const yp = (ROWS / 2 - (K1 * 0.55) * D * y2) | 0;
+
+      if (yp >= 0 && yp < ROWS && xp >= 0 && xp < COLS) {
+        const o = xp + COLS * yp;
+        if (D > zbuf[o]) {
+          zbuf[o] = D;
+          buf[o] = CHARS[Nidx];
+          samples++;
+        }
+      }
+    }
+
+    let out = "";
+    for (let r = 0; r < ROWS; r++) {
+      out += buf.slice(r * COLS, r * COLS + COLS).join("") + "\n";
+    }
+    asciiEl.textContent = out;
+    vs.textContent = samples;
+  }
+
+  let last = performance.now();
+  let frames = 0, acc = 0;
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+
+    if (spinOn) {
+      rotX += dSpinX * (dt * 60);
+      rotY += dSpinY * (dt * 60);
+    }
+
+    renderFrame();
+
+    frames++;
+    acc += dt;
+    if (acc >= 0.5) {
+      fpsEl.textContent = Math.round(frames / acc) + " fps";
+      frames = 0; acc = 0;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  let ptrId = null;
+  let startX = 0, startY = 0, startT = 0;
+  let startRotX = 0, startRotY = 0;
+  let moved = false;
+  let lastTap = 0;
+  let longTimer = null;
+  const wrap = document.getElementById("ascii-wrap");
+
+  function onDown(e) {
+    if (ptrId !== null) return;
+    ptrId = e.pointerId;
+    startX = e.clientX; startY = e.clientY;
+    startT = performance.now();
+    startRotX = rotX; startRotY = rotY;
+    moved = false;
+    wrap.setPointerCapture(ptrId);
+    longTimer = setTimeout(() => {
+      if (!moved) {
+        overlay.classList.add("show");
+        if (navigator.vibrate) navigator.vibrate(12);
+      }
+    }, 520);
+  }
+
+  function onMove(e) {
+    if (e.pointerId !== ptrId) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (Math.abs(dx) + Math.abs(dy) > 6) {
+      moved = true;
+      clearTimeout(longTimer);
+      rotY = startRotY + dx * 0.0075;
+      rotX = startRotX + dy * 0.0075;
+      rotX = Math.max(-1.45, Math.min(1.45, rotX));
+      status.textContent = spinOn ? "steering spin…" : "turning…";
+    }
+  }
+
+  function onUp(e) {
+    if (e.pointerId !== ptrId) return;
+    clearTimeout(longTimer);
+    const dt = performance.now() - startT;
+    const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
+
+    if (!moved && dist < 12 && dt < 280) {
+      const now = performance.now();
+      if (now - lastTap < 320) {
+        rotX = 0.35; rotY = 0.6;
+        status.textContent = "reset";
+        if (navigator.vibrate) navigator.vibrate([8, 30, 8]);
+      } else {
+        status.textContent = spinOn ? "spinning · drag to steer" : "holding · drag to turn";
+      }
+      lastTap = now;
+    } else if (moved) {
+      status.textContent = spinOn ? "spinning · drag to steer" : "holding · drag to turn";
+    }
+    ptrId = null;
+  }
+
+  wrap.addEventListener("pointerdown", onDown);
+  wrap.addEventListener("pointermove", onMove);
+  wrap.addEventListener("pointerup", onUp);
+  wrap.addEventListener("pointercancel", onUp);
+
+  document.getElementById("picker").addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    document.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active");
+    obj = chip.dataset.obj;
+    rebuild();
+    if (navigator.vibrate) navigator.vibrate(8);
+  });
+
+  spinBtn.addEventListener("click", () => {
+    spinOn = !spinOn;
+    spinBtn.textContent = spinOn ? "Spin on" : "Spin off";
+    spinBtn.classList.toggle("active", spinOn);
+    vmode.textContent = spinOn ? "spin" : "hold";
+    status.textContent = spinOn ? "spinning · drag to steer" : "holding · drag to turn";
+    if (navigator.vibrate) navigator.vibrate(10);
+  });
+
+  document.getElementById("close-ov").onclick = () => overlay.classList.remove("show");
+
+  resize();
+  rebuild();
+  window.addEventListener("resize", resize);
+  document.body.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
+  requestAnimationFrame(loop);
+
+  setTimeout(() => {
+    if (!localStorage.getItem("hold-seen")) {
+      overlay.classList.add("show");
+      localStorage.setItem("hold-seen", "1");
+    }
+  }, 700);
+})();
+</script>
+</body>
+</html>
