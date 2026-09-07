@@ -10,6 +10,7 @@ Interactive 3D surfaces rendered in pure ASCII using the a1k0n projection pipeli
 | **Donut** | / | Classic principal motion (auto-spin + velocity steer) |
 | **Trefoil** | /trefoil.html | Same principle, more complex path |
 | **Hold** | /hold.html | Real-world-like free orbit + optional spin + everyday objects |
+| **Fast Hold** | /fast-hold.html | Choose → load samples → show. Canvas points first, ASCII optional |
 
 ## Hold demo — key improvements
 - **Hold mode** (default): drag turns the object like holding it in your hand (absolute orientation)
@@ -17,6 +18,12 @@ Interactive 3D surfaces rendered in pure ASCII using the a1k0n projection pipeli
 - Object switcher: Torus · Trefoil · Sphere · Mug
 - Double-tap resets orientation
 - Same mobile-first interaction grammar
+
+## Fast Hold — UI / speed pass
+- Shape sheet first: pick a card, then a load gate, then the object appears
+- Default draw path is canvas points (roadmap step 2); ASCII remains a dock toggle
+- Packed `Float32` samples, device density, auto-stride if fps drops
+- Dock: Shapes · Points/ASCII · Spin. Drag still holds the object
 
 ## Roadmap toward cheap 3D
 1. **ASCII** (now) — surface samples + z-buffer + luminance chars
