@@ -2,14 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0a0a0b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="description" content="ASCII Hold — real-world-like free orbit of everyday objects, optional spin, same a1k0n projection principle">
 <title>ASCII · Hold</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0a0b'/%3E%3Ctext x='16' y='23' font-family='monospace' font-size='20' fill='%23a78bfa' text-anchor='middle'%3E@%3C/text%3E%3C/svg%3E">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
-
 :root {
   --bg: #0a0a0b;
   --surface: #141416;
@@ -17,6 +16,7 @@
   --text: #e8e8ea;
   --dim: #9a9aa0;
   --faint: #5c5c64;
+  --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace;
   --accent: #a78bfa;
   --ok: #34d399;
   --safe-t: env(safe-area-inset-top, 0px);
@@ -29,7 +29,7 @@ html, body {
   height:100%;
   background: var(--bg);
   color: var(--text);
-  font-family: Inter, system-ui, sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   overflow: hidden;
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
@@ -70,7 +70,7 @@ header {
   box-shadow: 0 0 8px var(--ok);
 }
 .badge {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--mono);
   font-size: 10px;
   color: var(--dim);
   background: var(--surface);
@@ -117,7 +117,7 @@ header {
 }
 
 #ascii {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--mono);
   font-size: clamp(6.5px, 2.0vw, 10.5px);
   line-height: 1.05;
   letter-spacing: 0.02em;
@@ -133,7 +133,7 @@ header {
   position: absolute;
   left: 12px;
   bottom: 12px;
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--mono);
   font-size: 10px;
   color: var(--faint);
   line-height: 1.5;
@@ -171,7 +171,7 @@ header {
   color: #a7f3d0;
 }
 .hint {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--mono);
   font-size: 10px;
   color: var(--faint);
   text-align: right;
@@ -205,7 +205,7 @@ header {
   margin-bottom: 8px;
 }
 #overlay code {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--mono);
   font-size: 11px;
   color: #c4b5fd;
   display: block;
@@ -236,24 +236,73 @@ header {
   pointer-events: none;
   background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.48) 100%);
 }
+
+/* ── shared nav ─────────────────────────────────────── */
+nav {
+  display: flex;
+  gap: 2px;
+  margin-inline: auto 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+nav::-webkit-scrollbar { display: none; }
+nav a {
+  font-size: 11px;
+  color: var(--faint);
+  text-decoration: none;
+  padding: 4px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+nav a:hover { color: var(--dim); background: var(--surface); }
+nav a[aria-current='page'] { color: var(--accent); background: var(--surface); }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.sr {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
 </style>
 </head>
 <body>
 <div id="stage">
   <header>
     <div class="logo"><span></span> ASCII · Hold</div>
+    <nav aria-label="Demos">
+      <a href="./index.html">Donut</a>
+      <a href="./trefoil.html">Trefoil</a>
+      <a href="./hold.html" aria-current="page">Hold</a>
+      <a href="./play.html">Play</a>
+    </nav>
     <div class="badge" id="fps">-- fps</div>
   </header>
 
-  <div class="picker" id="picker">
-    <button class="chip active" data-obj="torus">Torus</button>
-    <button class="chip" data-obj="trefoil">Trefoil</button>
-    <button class="chip" data-obj="sphere">Sphere</button>
-    <button class="chip" data-obj="mug">Mug</button>
+  <div class="picker" id="picker" role="radiogroup" aria-label="Object">
+    <button class="chip active" role="radio" aria-checked="true" data-obj="torus">Torus</button>
+    <button class="chip" role="radio" aria-checked="false" data-obj="trefoil">Trefoil</button>
+    <button class="chip" role="radio" aria-checked="false" data-obj="sphere">Sphere</button>
+    <button class="chip" role="radio" aria-checked="false" data-obj="mug">Mug</button>
   </div>
 
   <div id="ascii-wrap">
-    <pre id="ascii"></pre>
+    <pre id="ascii" aria-hidden="true"></pre>
     <div id="hud">
       <span id="vobj">torus</span> · <span id="vmode">hold</span><br>
       samples <span id="vs">0</span>
@@ -261,8 +310,8 @@ header {
   </div>
 
   <div class="controls">
-    <button class="mode-btn" id="spin-btn">Spin off</button>
-    <div class="hint" id="status">drag to turn · like holding an object</div>
+    <button class="mode-btn" id="spin-btn" aria-pressed="false">Spin off</button>
+    <div class="hint" id="status" role="status" aria-live="polite">drag to turn · like holding an object</div>
   </div>
 </div>
 
@@ -419,10 +468,18 @@ Objects are still pure surface samples<br>
 
   const samplers = { torus: sampleTorus, trefoil: sampleTrefoil, sphere: sampleSphere, mug: sampleMug };
   let points = [];
+  let maxR = 1;
 
   function rebuild() {
     points = [];
     samplers[obj](points);
+    // bounding radius drives auto-framing, so every object fills the grid the same way
+    let r2 = 0;
+    for (const p of points) {
+      const d = p.x*p.x + p.y*p.y + p.z*p.z;
+      if (d > r2) r2 = d;
+    }
+    maxR = Math.sqrt(r2) || 1;
     vobj.textContent = obj;
   }
 
@@ -430,9 +487,9 @@ Objects are still pure surface samples<br>
     const w = window.innerWidth;
     const h = window.innerHeight * 0.62;
     const cellW = Math.max(6, Math.min(10.5, w / 72));
-    COLS = Math.max(44, Math.min(110, Math.floor(w / cellW) | 1));
-    ROWS = Math.max(20, Math.min(36, Math.floor(h / (cellW * 1.55)) | 1));
-    K1 = COLS * 0.46;
+    // clamp first, force odd second — otherwise the clamp can undo the odd centre column
+    COLS = Math.max(45, Math.min(109, Math.floor(w / cellW))) | 1;
+    ROWS = Math.max(21, Math.min(35, Math.floor(h / (cellW * 1.55)))) | 1;
     buf  = new Array(COLS * ROWS);
     zbuf = new Float32Array(COLS * ROWS);
     asciiEl.style.fontSize = cellW + "px";
@@ -443,8 +500,12 @@ Objects are still pure surface samples<br>
     zbuf.fill(0);
   }
 
+  const YSQUASH = 0.55;
+
   function renderFrame() {
     clearBuffers();
+    // fit the bounding sphere to ~84% of the tighter grid axis instead of a fixed K1
+    K1 = Math.min(0.42 * COLS * K2 / maxR, 0.42 * ROWS * K2 / (maxR * YSQUASH));
     const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
     const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
     let samples = 0;
@@ -469,7 +530,7 @@ Objects are still pure surface samples<br>
       const Nidx = Math.max(0, Math.min(11, Math.floor(Lraw * 7.5 + 3.2)));
 
       const xp = (COLS / 2 + K1 * D * x2) | 0;
-      const yp = (ROWS / 2 - (K1 * 0.55) * D * y2) | 0;
+      const yp = (ROWS / 2 - (K1 * YSQUASH) * D * y2) | 0;
 
       if (yp >= 0 && yp < ROWS && xp >= 0 && xp < COLS) {
         const o = xp + COLS * yp;
@@ -491,7 +552,14 @@ Objects are still pure surface samples<br>
 
   let last = performance.now();
   let frames = 0, acc = 0;
+  let running = true;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { running = false; }
+    else if (!running) { running = true; last = performance.now(); requestAnimationFrame(loop); }
+  });
+
   function loop(now) {
+    if (!running) return;
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
 
@@ -579,8 +647,10 @@ Objects are still pure surface samples<br>
   document.getElementById("picker").addEventListener("click", (e) => {
     const chip = e.target.closest(".chip");
     if (!chip) return;
-    document.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
-    chip.classList.add("active");
+    document.querySelectorAll(".chip").forEach(c => {
+      c.classList.toggle("active", c === chip);
+      c.setAttribute("aria-checked", String(c === chip));
+    });
     obj = chip.dataset.obj;
     rebuild();
     if (navigator.vibrate) navigator.vibrate(8);
@@ -590,6 +660,7 @@ Objects are still pure surface samples<br>
     spinOn = !spinOn;
     spinBtn.textContent = spinOn ? "Spin on" : "Spin off";
     spinBtn.classList.toggle("active", spinOn);
+    spinBtn.setAttribute("aria-pressed", String(spinOn));
     vmode.textContent = spinOn ? "spin" : "hold";
     status.textContent = spinOn ? "spinning · drag to steer" : "holding · drag to turn";
     if (navigator.vibrate) navigator.vibrate(10);
@@ -599,15 +670,20 @@ Objects are still pure surface samples<br>
 
   resize();
   rebuild();
-  window.addEventListener("resize", resize);
+  let resizeT;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeT); resizeT = setTimeout(resize, 120);
+  });
   document.body.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
   requestAnimationFrame(loop);
 
   setTimeout(() => {
-    if (!localStorage.getItem("hold-seen")) {
-      overlay.classList.add("show");
-      localStorage.setItem("hold-seen", "1");
-    }
+    try {
+      if (!localStorage.getItem("hold-seen")) {
+        overlay.classList.add("show");
+        localStorage.setItem("hold-seen", "1");
+      }
+    } catch { overlay.classList.add("show"); }
   }, 700);
 })();
 </script>
