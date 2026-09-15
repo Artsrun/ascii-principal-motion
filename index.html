@@ -397,13 +397,27 @@ L = Ny − Nz  →  .,-~:;=!*#$@
 
   let last = performance.now();
   let frames = 0, acc = 0;
-  let running = true;
+  let running = true, rafId = 0;
+
+  // one rAF chain, ever: restarting without cancelling the pending frame left
+  // two chains running after a tab switch and doubled the work per frame
+  function start() {
+    if (rafId || !running) return;
+    last = performance.now();
+    rafId = requestAnimationFrame(loop);
+  }
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) { running = false; }
-    else if (!running) { running = true; last = performance.now(); requestAnimationFrame(loop); }
+    if (document.hidden) {
+      running = false;
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+    } else {
+      running = true;
+      start();
+    }
   });
 
   function loop(now) {
+    rafId = 0;
     if (!running) return;
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
@@ -428,7 +442,7 @@ L = Ny − Nz  →  .,-~:;=!*#$@
       fpsEl.textContent = Math.round(frames / acc) + " fps";
       frames = 0; acc = 0;
     }
-    requestAnimationFrame(loop);
+    rafId = requestAnimationFrame(loop);
   }
 
   let ptrId = null;
@@ -507,9 +521,11 @@ L = Ny − Nz  →  .,-~:;=!*#$@
   window.addEventListener("resize", () => {
     clearTimeout(resizeT); resizeT = setTimeout(resize, 120);
   });
-  document.body.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
+  // scoped to the canvas: blanketing document.body also froze the help
+  // overlay, which is taller than a phone screen and has to scroll
+  wrap.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
 
-  requestAnimationFrame(loop);
+  start();
 
   setTimeout(() => {
     try {
