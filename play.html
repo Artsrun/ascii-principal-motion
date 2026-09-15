@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="ASCII Playtool — live controls for the a1k0n projection pipeline: object, density, lens, light, charset. Shareable via URL.">
+<title>ASCII · Playtool</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0a0b'/%3E%3Ctext x='16' y='23' font-family='monospace' font-size='20' fill='%23a78bfa' text-anchor='middle'%3E@%3C/text%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #0a0a0b;
+  --surface: #141416;
+  --surface-2: #1c1c1f;
+  --line: #2a2a2e;
+  --text: #e8e8ea;
+  --dim: #9a9aa0;
+  --faint: #5c5c64;
+  --accent: #a78bfa;
+  --ok: #34d399;
+  --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 14px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.sr {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--safe-t);
+}
+
+header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 6px;
+  z-index: 5;
+}
+.logo {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.logo i {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+}
+nav {
+  display: flex;
+  gap: 2px;
+  margin-inline-start: auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+nav::-webkit-scrollbar { display: none; }
+nav a {
+  font-size: 11px;
+  color: var(--faint);
+  text-decoration: none;
+  padding: 4px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+nav a:hover { color: var(--dim); background: var(--surface); }
+nav a[aria-current='page'] { color: var(--accent); background: var(--surface); }
+
+.badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+  background: var(--surface);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #222;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+#ascii-wrap {
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  position: relative;
+  min-height: 0;
+  touch-action: none;
+  cursor: grab;
+}
+#ascii-wrap:active { cursor: grabbing; }
+#ascii-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 42%, rgba(0,0,0,0.5) 100%);
+}
+
+#ascii {
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.08;
+  letter-spacing: 0;
+  white-space: pre;
+  color: #d4d4d8;
+  text-align: center;
+  margin: 0;
+  will-change: contents;
+  contain: layout style;
+}
+
+#hud {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--faint);
+  line-height: 1.5;
+  pointer-events: none;
+  background: rgba(10,10,11,0.7);
+  padding: 6px 9px;
+  border-radius: 8px;
+  backdrop-filter: blur(6px);
+  font-variant-numeric: tabular-nums;
+  transition: opacity 0.2s;
+}
+#hud[hidden] { display: none; }
+
+#toast {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  translate: -50% 0;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  padding: 8px 14px;
+  border-radius: 20px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s, translate 0.25s;
+  z-index: 15;
+}
+#toast.show { opacity: 1; translate: -50% -6px; }
+
+/* ── control panel ────────────────────────────────── */
+#panel {
+  flex: 0 0 auto;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding: 0 14px calc(10px + var(--safe-b));
+  z-index: 10;
+  max-height: min(52dvh, 430px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+#panel[data-open='false'] .panel-body { display: none; }
+
+.panel-head {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  z-index: 2;
+}
+.panel-head .spacer {
+  margin-inline-start: auto;
+  flex: 0 0 auto;
+  box-shadow: -10px 0 10px -4px var(--surface);
+}
+
+.btn {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 13px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover { color: var(--text); border-color: #3a3a40; }
+.btn[aria-pressed='true'] {
+  background: rgba(52,211,153,0.15);
+  border-color: var(--ok);
+  color: #a7f3d0;
+}
+.btn.icon { padding: 8px 10px; }
+
+.chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 13px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--dim);
+  cursor: pointer;
+}
+.chip[aria-checked='true'] {
+  background: rgba(167,139,250,0.18);
+  border-color: var(--accent);
+  color: #e9e0ff;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 6px 18px;
+  padding: 10px 0 4px;
+}
+
+.ctl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 8px;
+  font-size: 11px;
+  color: var(--dim);
+}
+.ctl output {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.ctl input[type='range'] {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 22px;
+  accent-color: var(--accent);
+  background: transparent;
+  cursor: pointer;
+}
+.ctl select {
+  grid-column: 1 / -1;
+  font: inherit;
+  font-size: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin-top: 2px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0 2px;
+}
+.row .toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--dim);
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.row .toggle input { accent-color: var(--accent); cursor: pointer; }
+
+kbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 4px;
+  color: var(--dim);
+}
+.keys {
+  font-size: 10.5px;
+  color: var(--faint);
+  line-height: 2;
+  padding: 8px 0 2px;
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div id="stage">
+  <header>
+    <h1 class="logo"><i></i> ASCII · Playtool</h1>
+    <nav aria-label="Demos">
+      <a href="./index.html">Donut</a>
+      <a href="./trefoil.html">Trefoil</a>
+      <a href="./hold.html">Hold</a>
+      <a href="./play.html" aria-current="page">Play</a>
+    </nav>
+    <span class="badge" id="fps">-- fps</span>
+  </header>
+
+  <div id="ascii-wrap">
+    <pre id="ascii" aria-hidden="true"></pre>
+    <div id="hud">
+      <span id="v-obj">torus</span> · <span id="v-pts">0</span>pts ·
+      <span id="v-rx">0.00</span>/<span id="v-ry">0.00</span> · <span id="v-q">1.00×</span>
+    </div>
+    <div id="toast" role="status"></div>
+  </div>
+
+  <div id="panel" data-open="true">
+    <div class="panel-head">
+      <div class="chips" role="radiogroup" aria-label="Object" id="objs">
+        <button class="chip" role="radio" aria-checked="true"  data-obj="torus">Torus</button>
+        <button class="chip" role="radio" aria-checked="false" data-obj="trefoil">Trefoil</button>
+        <button class="chip" role="radio" aria-checked="false" data-obj="sphere">Sphere</button>
+        <button class="chip" role="radio" aria-checked="false" data-obj="mug">Mug</button>
+        <button class="chip" role="radio" aria-checked="false" data-obj="cube">Cube</button>
+        <button class="chip" role="radio" aria-checked="false" data-obj="spring">Spring</button>
+      </div>
+      <button class="btn icon spacer" id="panel-toggle" aria-expanded="true" aria-controls="panel-body" title="Collapse controls">▾</button>
+    </div>
+
+    <div class="panel-body" id="panel-body">
+      <div class="grid">
+        <label class="ctl">Density <output id="o-density">1.00×</output>
+          <input type="range" id="density" min="0.35" max="2" step="0.05" value="1">
+        </label>
+        <label class="ctl">Zoom <output id="o-zoom">1.00×</output>
+          <input type="range" id="zoom" min="0.4" max="2.5" step="0.05" value="1">
+        </label>
+        <label class="ctl">Distance (K2) <output id="o-dist">6.5</output>
+          <input type="range" id="dist" min="3" max="14" step="0.1" value="6.5">
+        </label>
+        <label class="ctl">Spin <output id="o-spin">0%</output>
+          <input type="range" id="spin" min="0" max="1" step="0.01" value="0">
+        </label>
+        <label class="ctl">Light azimuth <output id="o-laz">-35°</output>
+          <input type="range" id="laz" min="-180" max="180" step="1" value="-35">
+        </label>
+        <label class="ctl">Light elevation <output id="o-lel">50°</output>
+          <input type="range" id="lel" min="-90" max="90" step="1" value="50">
+        </label>
+        <label class="ctl">Charset
+          <select id="ramp">
+            <option value="0">a1k0n classic  .,-~:;=!*#$@</option>
+            <option value="1">minimal  .:-=+*#%@</option>
+            <option value="2">blocks  ░▒▓█</option>
+            <option value="3">dots  ·:∷▪■</option>
+            <option value="4">binary  01</option>
+          </select>
+        </label>
+        <label class="ctl">Y stretch <output id="o-aspect">1.00×</output>
+          <input type="range" id="aspect" min="0.6" max="1.7" step="0.01" value="1">
+        </label>
+      </div>
+
+      <div class="row">
+        <button class="btn" id="b-spin" aria-pressed="false">Spin</button>
+        <button class="btn" id="b-reset">Reset</button>
+        <button class="btn" id="b-copy">Copy frame</button>
+        <button class="btn" id="b-share">Share link</button>
+        <label class="toggle"><input type="checkbox" id="b-auto" checked> Auto quality</label>
+        <label class="toggle"><input type="checkbox" id="b-invert"> Invert</label>
+        <label class="toggle"><input type="checkbox" id="b-hud" checked> HUD</label>
+      </div>
+
+      <p class="keys">
+        <kbd>←→↑↓</kbd> turn · <kbd>space</kbd> spin · <kbd>R</kbd> reset ·
+        <kbd>C</kbd> copy · <kbd>S</kbd> share · <kbd>[</kbd><kbd>]</kbd> density ·
+        <kbd>-</kbd><kbd>+</kbd> zoom · <kbd>1</kbd>–<kbd>6</kbd> object · <kbd>H</kbd> panel
+      </p>
+    </div>
+  </div>
+</div>
+
+<p class="sr" role="status" aria-live="polite" id="live"></p>
+
+<script>
+(() => {
+  const TAU = Math.PI * 2;
+  const $ = (id) => document.getElementById(id);
+  const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
+
+  const RAMPS = [
+    '.,-~:;=!*#$@',
+    '.:-=+*#%@',
+    '░▒▓█',
+    '·:∷▪■',
+    '01'
+  ];
+
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const S = {
+    obj: 'torus',
+    density: 1,
+    zoom: 1,
+    dist: 6.5,
+    spin: reduced ? 0 : 0.35,
+    laz: -35,
+    lel: 50,
+    ramp: 0,
+    aspect: 1,
+    invert: false,
+    rotX: 0.35,
+    rotY: 0.6
+  };
+
+  // ── samplers: push(x,y,z, nx,ny,nz) ─────────────────
+  const torus = (push, d) => {
+    const R1 = 0.55, R2 = 1.35, sj = 0.07 / d, si = 0.055 / d;
+    for (let j = 0; j < TAU; j += sj) {
+      const cj = Math.cos(j), sjn = Math.sin(j);
+      for (let i = 0; i < TAU; i += si) {
+        const ci = Math.cos(i), sin = Math.sin(i), h = R2 + R1 * ci;
+        push(h * cj, R1 * sin, -h * sjn, ci * cj, sin, -ci * sjn);
+      }
+    }
+  };
+
+  // shared tube sweep along a parametric path
+  const tube = (push, path, R, tStep, pStep) => {
+    for (let t = 0; t < TAU; t += tStep) {
+      const p = path(t), q = path(t + 0.01);
+      let tx = q[0] - p[0], ty = q[1] - p[1], tz = q[2] - p[2];
+      const tl = Math.hypot(tx, ty, tz) || 1;
+      tx /= tl; ty /= tl; tz /= tl;
+      let nx = -ty, ny = tx, nz = 0;
+      const nl = Math.hypot(nx, ny, nz) || 1;
+      nx /= nl; ny /= nl; nz /= nl;
+      let bx = ty * nz - tz * ny, by = tz * nx - tx * nz, bz = tx * ny - ty * nx;
+      const bl = Math.hypot(bx, by, bz) || 1;
+      bx /= bl; by /= bl; bz /= bl;
+      for (let f = 0; f < TAU; f += pStep) {
+        const cf = Math.cos(f), sf = Math.sin(f);
+        const ux = cf * nx + sf * bx, uy = cf * ny + sf * by, uz = cf * nz + sf * bz;
+        push(p[0] + R * ux, p[1] + R * uy, p[2] + R * uz, ux, uy, uz);
+      }
+    }
+  };
+
+  const trefoil = (push, d) => tube(push, (t) => {
+    const sc = 0.78;
+    return [sc * (Math.sin(t) + 2 * Math.sin(2 * t)),
+            sc * (Math.cos(t) - 2 * Math.cos(2 * t)),
+            sc * -Math.sin(3 * t)];
+  }, 0.38, 0.045 / d, 0.2 / d);
+
+  const spring = (push, d) => tube(push, (t) => {
+    const turns = 3.5, y = (t / TAU) * 2.4 - 1.2;
+    return [1.05 * Math.cos(t * turns), y, 1.05 * Math.sin(t * turns)];
+  }, 0.24, 0.02 / d, 0.26 / d);
+
+  const sphere = (push, d) => {
+    const R = 1.35, sj = 0.085 / d, si = 0.075 / d;
+    for (let j = 0; j < Math.PI; j += sj) {
+      const sjn = Math.sin(j), cj = Math.cos(j);
+      for (let i = 0; i < TAU; i += si) {
+        const ci = Math.cos(i), sin = Math.sin(i);
+        push(R * sjn * ci, R * cj, R * sjn * sin, sjn * ci, cj, sjn * sin);
+      }
+    }
+  };
+
+  const cube = (push, d) => {
+    const H = 1.05, st = 0.055 / d;
+    const axes = [[0, 1, 2], [1, 2, 0], [2, 0, 1]];
+    for (const [a, b, c] of axes) {
+      for (const sign of [-1, 1]) {
+        for (let u = -H; u <= H; u += st) {
+          for (let v = -H; v <= H; v += st) {
+            const P = [0, 0, 0], N = [0, 0, 0];
+            P[a] = u; P[b] = v; P[c] = sign * H;
+            N[c] = sign;
+            push(P[0], P[1], P[2], N[0], N[1], N[2]);
+          }
+        }
+      }
+    }
+  };
+
+  const mug = (push, d) => {
+    const Rb = 0.95, H = 1.55, sy = 0.09 / d, si = 0.09 / d;
+    for (let y = -H / 2; y <= H / 2; y += sy)
+      for (let i = 0; i < TAU; i += si) {
+        const ci = Math.cos(i), sin = Math.sin(i);
+        push(Rb * ci, y, Rb * sin, ci, 0, sin);
+      }
+    const r1 = 0.16, r2 = 0.95;
+    for (let j = 0; j < TAU; j += 0.13 / d)
+      for (let i = 0; i < TAU; i += 0.16 / d) {
+        const cj = Math.cos(j), sj = Math.sin(j), ci = Math.cos(i), sin = Math.sin(i);
+        const h = r2 + r1 * ci;
+        push(h * cj, H / 2 + r1 * sin, -h * sj, ci * cj, sin, -ci * sj);
+      }
+    for (let r = 0.08; r < Rb; r += 0.11 / d)
+      for (let i = 0; i < TAU; i += 0.16 / d)
+        push(r * Math.cos(i), -H / 2, r * Math.sin(i), 0, -1, 0);
+    for (let a = -1; a < 1; a += 0.1 / d) {
+      const cx = Rb + 0.5 * Math.cos(a), cy = 0.16 * Math.sin(a * 1.4);
+      for (let p = 0; p < TAU; p += 0.3 / d) {
+        const cp = Math.cos(p), sp = Math.sin(p);
+        push(cx + 0.14 * cp, cy + 0.14 * sp, 0.05 * sp, cp, sp, 0);
+      }
+    }
+  };
+
+  const SAMPLERS = { torus, trefoil, sphere, mug, cube, spring };
+  const OBJ_KEYS = ['torus', 'trefoil', 'sphere', 'mug', 'cube', 'spring'];
+
+  // ── geometry buffer (stride 6, flat Float32Array) ───
+  let P = new Float32Array(0);
+  let maxR = 1;
+  let effDensity = S.density;
+
+  const rebuild = () => {
+    const a = [];
+    SAMPLERS[S.obj]((x, y, z, nx, ny, nz) => a.push(x, y, z, nx, ny, nz), effDensity);
+    P = new Float32Array(a);
+    let r2 = 0;
+    for (let k = 0; k < P.length; k += 6) {
+      const d = P[k] * P[k] + P[k + 1] * P[k + 1] + P[k + 2] * P[k + 2];
+      if (d > r2) r2 = d;
+    }
+    maxR = Math.sqrt(r2) || 1;
+    $('v-obj').textContent = S.obj;
+    $('v-pts').textContent = (P.length / 6) | 0;
+    $('v-q').textContent = effDensity.toFixed(2) + '×';
+  };
+
+  // ── raster buffers ──────────────────────────────────
+  const asciiEl = $('ascii'), wrap = $('ascii-wrap');
+  let COLS = 80, ROWS = 28, K1 = 34;
+  let idxBuf, zbuf, out;
+  let cellW = 10, cellH = 11;
+
+  // measure real glyph box once — no hardcoded aspect guess
+  const measure = (fontPx) => {
+    const probe = document.createElement('pre');
+    probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;margin:0;line-height:1.08';
+    // set family/size separately — the `font` shorthand would reset line-height to normal
+    probe.style.fontFamily = getComputedStyle(document.documentElement).getPropertyValue('--mono');
+    probe.style.fontSize = fontPx + 'px';
+    probe.textContent = 'MMMMMMMMMM\n'.repeat(10).trimEnd();
+    document.body.append(probe);
+    const r = probe.getBoundingClientRect();
+    probe.remove();
+    return { w: r.width / 10, h: r.height / 10 };
+  };
+
+  const resize = () => {
+    const r = wrap.getBoundingClientRect();
+    // pick the font size from a target column count so text stays legible at any width
+    const target = r.width < 480 ? 74 : r.width < 900 ? 100 : 124;
+    const ref = measure(20);
+    const fontPx = clamp(Math.round(r.width / (target * (ref.w / 20))), 7, 20);
+    const m = measure(fontPx);
+    cellW = m.w || fontPx * 0.6;
+    cellH = m.h || fontPx * 1.08;
+    asciiEl.style.fontSize = fontPx + 'px';
+    COLS = clamp(Math.floor((r.width - 8) / cellW), 40, 160);
+    ROWS = clamp(Math.floor((r.height - 8) / cellH), 18, 70);
+    if (!(COLS & 1)) COLS -= 1;   // odd → true center column
+    if (!(ROWS & 1)) ROWS -= 1;
+    idxBuf = new Uint8Array(COLS * ROWS);
+    zbuf = new Float32Array(COLS * ROWS);
+    out = new Array(ROWS * (COLS + 1));
+    for (let r2 = 0; r2 < ROWS; r2++) out[r2 * (COLS + 1) + COLS] = '\n';
+  };
+
+  const render = () => {
+    idxBuf.fill(0);
+    zbuf.fill(0);
+
+    const ramp = RAMPS[S.ramp];
+    const last = ramp.length - 1;
+    const cx = Math.cos(S.rotX), sx = Math.sin(S.rotX);
+    const cy = Math.cos(S.rotY), sy = Math.sin(S.rotY);
+
+    const az = S.laz * Math.PI / 180, el = S.lel * Math.PI / 180;
+    const lx = Math.cos(el) * Math.sin(az), ly = Math.sin(el), lz = Math.cos(el) * Math.cos(az);
+
+    const K2 = S.dist;
+    const glyph = cellW / cellH;              // measured, not guessed
+    const stretch = glyph * S.aspect;
+    // fit the object's bounding sphere to ~84% of the smaller grid axis
+    const fitX = 0.42 * COLS * K2 / maxR;
+    const fitY = 0.42 * ROWS * K2 / (maxR * stretch);
+    K1 = Math.min(fitX, fitY) * S.zoom;
+    const kx = K1, ky = K1 * stretch;
+
+    const halfC = COLS >> 1, halfR = ROWS >> 1;
+
+    for (let k = 0; k < P.length; k += 6) {
+      // yaw then pitch
+      const x1 = P[k] * cy - P[k + 2] * sy;
+      const z1 = P[k] * sy + P[k + 2] * cy;
+      const y1 = P[k + 1];
+      const y2 = y1 * cx - z1 * sx;
+      const z2 = y1 * sx + z1 * cx;
+
+      const zc = z2 + K2;
+      if (zc <= 0.05) continue;
+      const D = 1 / zc;
+
+      const xp = (halfC + kx * D * x1) | 0;
+      if (xp < 0 || xp >= COLS) continue;
+      const yp = (halfR - ky * D * y2) | 0;
+      if (yp < 0 || yp >= ROWS) continue;
+
+      const o = xp + COLS * yp;
+      if (D <= zbuf[o]) continue;
+
+      const nx1 = P[k + 3] * cy - P[k + 5] * sy;
+      const nz1 = P[k + 3] * sy + P[k + 5] * cy;
+      const ny1 = P[k + 4];
+      const ny2 = ny1 * cx - nz1 * sx;
+      const nz2 = ny1 * sx + nz1 * cx;
+
+      let L = nx1 * lx + ny2 * ly - nz2 * lz;
+      if (L < 0) L = 0;
+      let i = (L * last + 0.5) | 0;
+      if (i > last) i = last;
+
+      zbuf[o] = D;
+      idxBuf[o] = (S.invert ? last - i : i) + 1;
+    }
+
+    for (let r = 0, p = 0; r < ROWS; r++) {
+      const base = r * (COLS + 1), row = r * COLS;
+      for (let c = 0; c < COLS; c++) {
+        p = idxBuf[row + c];
+        out[base + c] = p ? ramp[p - 1] : ' ';
+      }
+    }
+    asciiEl.textContent = out.join('');
+  };
+
+  // ── loop + adaptive quality ─────────────────────────
+  const fpsEl = $('fps');
+  let prev = performance.now(), frames = 0, acc = 0, ema = 60, adaptAt = 0, running = true;
+
+  const loop = (now) => {
+    if (!running) return;
+    const dt = Math.min(0.05, (now - prev) / 1000);
+    prev = now;
+
+    if (S.spin > 0) {
+      S.rotY += S.spin * 0.030 * dt * 60;
+      S.rotX += S.spin * 0.011 * dt * 60;
+      S.rotX = clamp(S.rotX, -1.45, 1.45);
+    }
+
+    render();
+
+    frames++; acc += dt;
+    if (acc >= 0.5) {
+      const fps = frames / acc;
+      ema = ema * 0.6 + fps * 0.4;
+      fpsEl.textContent = Math.round(fps) + ' fps';
+      frames = 0; acc = 0;
+
+      if (autoQ && now - adaptAt > 1500) {
+        if (ema < 28 && effDensity > 0.4) {
+          effDensity = Math.max(0.4, effDensity * 0.82); rebuild(); adaptAt = now;
+          toast('Quality auto-lowered to keep 30fps');
+        } else if (ema > 55 && effDensity < S.density - 0.01) {
+          effDensity = Math.min(S.density, effDensity * 1.15); rebuild(); adaptAt = now;
+        }
+      }
+    }
+
+    $('v-rx').textContent = S.rotX.toFixed(2);
+    $('v-ry').textContent = S.rotY.toFixed(2);
+    requestAnimationFrame(loop);
+  };
+
+  // pause when tab hidden — no burning battery on an invisible canvas
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { running = false; }
+    else if (!running) { running = true; prev = performance.now(); requestAnimationFrame(loop); }
+  });
+
+  // ── state <-> URL hash ──────────────────────────────
+  const HASH_KEYS = ['obj', 'density', 'zoom', 'dist', 'spin', 'laz', 'lel', 'ramp', 'aspect', 'invert', 'rotX', 'rotY'];
+  const round = (v) => typeof v === 'number' ? +v.toFixed(3) : v;
+
+  const toHash = () => '#' + HASH_KEYS
+    .map((k) => `${k}=${encodeURIComponent(round(S[k]))}`).join('&');
+
+  const fromHash = () => {
+    const h = location.hash.slice(1);
+    if (!h) return false;
+    let any = false;
+    for (const part of h.split('&')) {
+      const [k, v] = part.split('=');
+      if (!HASH_KEYS.includes(k) || v === undefined) continue;
+      const dec = decodeURIComponent(v);
+      if (k === 'obj') { if (SAMPLERS[dec]) { S.obj = dec; any = true; } }
+      else if (k === 'invert') { S.invert = dec === 'true'; any = true; }
+      else { const n = parseFloat(dec); if (Number.isFinite(n)) { S[k] = n; any = true; } }
+    }
+    return any;
+  };
+
+  // ── UI wiring ───────────────────────────────────────
+  const live = $('live');
+  const say = (msg) => { live.textContent = msg; };
+
+  let toastT;
+  const toast = (msg) => {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastT);
+    toastT = setTimeout(() => t.classList.remove('show'), 1800);
+    say(msg);
+  };
+
+  let autoQ = true;
+
+  const fmt = {
+    density: (v) => v.toFixed(2) + '×',
+    zoom: (v) => v.toFixed(2) + '×',
+    dist: (v) => v.toFixed(1),
+    spin: (v) => Math.round(v * 100) + '%',
+    laz: (v) => Math.round(v) + '°',
+    lel: (v) => Math.round(v) + '°',
+    aspect: (v) => v.toFixed(2) + '\u00d7'
+  };
+  const OUT = { density: 'o-density', zoom: 'o-zoom', dist: 'o-dist', spin: 'o-spin', laz: 'o-laz', lel: 'o-lel', aspect: 'o-aspect' };
+
+  const syncOut = (k) => { const o = $(OUT[k]); if (o) o.textContent = fmt[k](S[k]); };
+
+  let rebuildT;
+  const bindRange = (k, needsRebuild) => {
+    const el = $(k);
+    el.value = S[k];
+    syncOut(k);
+    el.addEventListener('input', () => {
+      S[k] = parseFloat(el.value);
+      syncOut(k);
+      if (k === 'spin') syncSpinBtn();
+      if (needsRebuild) {
+        effDensity = S.density;
+        clearTimeout(rebuildT);
+        rebuildT = setTimeout(rebuild, 90);   // debounce: slider drag must not rebuild 60×/s
+      }
+      queueHash();
+    });
+  };
+
+  let hashT;
+  const queueHash = () => {
+    clearTimeout(hashT);
+    hashT = setTimeout(() => history.replaceState(null, '', toHash()), 250);
+  };
+
+  const syncSpinBtn = () => {
+    const on = S.spin > 0;
+    $('b-spin').setAttribute('aria-pressed', String(on));
+  };
+
+  const setObj = (name) => {
+    S.obj = name;
+    for (const c of document.querySelectorAll('#objs .chip'))
+      c.setAttribute('aria-checked', String(c.dataset.obj === name));
+    effDensity = S.density;
+    rebuild();
+    queueHash();
+    say(name + ' loaded');
+    if (navigator.vibrate) navigator.vibrate(8);
+  };
+
+  $('objs').addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (chip) setObj(chip.dataset.obj);
+  });
+
+  $('ramp').addEventListener('change', (e) => { S.ramp = +e.target.value; queueHash(); });
+  $('b-invert').addEventListener('change', (e) => { S.invert = e.target.checked; queueHash(); });
+  $('b-auto').addEventListener('change', (e) => {
+    autoQ = e.target.checked;
+    if (!autoQ && effDensity !== S.density) { effDensity = S.density; rebuild(); }
+  });
+  $('b-hud').addEventListener('change', (e) => { $('hud').hidden = !e.target.checked; });
+
+  let spinMemo = 0.35;
+  $('b-spin').addEventListener('click', () => {
+    if (S.spin > 0) { spinMemo = S.spin; S.spin = 0; }
+    else { S.spin = spinMemo || 0.35; }
+    $('spin').value = S.spin;
+    syncOut('spin');
+    syncSpinBtn();
+    queueHash();
+    say(S.spin > 0 ? 'spin on' : 'spin off');
+  });
+
+  const reset = () => {
+    S.rotX = 0.35; S.rotY = 0.6;
+    queueHash();
+    say('orientation reset');
+    if (navigator.vibrate) navigator.vibrate([8, 30, 8]);
+  };
+  $('b-reset').addEventListener('click', reset);
+
+  const write = async (text, okMsg) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(okMsg);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.append(ta); ta.select();
+      try { document.execCommand('copy'); toast(okMsg); }
+      catch { toast('Copy blocked by browser'); }
+      ta.remove();
+    }
+  };
+
+  $('b-copy').addEventListener('click', () => write(asciiEl.textContent, 'Frame copied'));
+  $('b-share').addEventListener('click', () => {
+    history.replaceState(null, '', toHash());
+    write(location.href, 'Link copied — state is in the URL');
+  });
+
+  const panel = $('panel'), pToggle = $('panel-toggle');
+  const setPanel = (open) => {
+    panel.dataset.open = String(open);
+    pToggle.textContent = open ? '▾' : '▴';
+    pToggle.setAttribute('aria-expanded', String(open));
+    pToggle.title = open ? 'Collapse controls' : 'Expand controls';
+    requestAnimationFrame(resize);
+  };
+  pToggle.addEventListener('click', () => setPanel(panel.dataset.open !== 'true'));
+
+  // ── pointer: drag to turn, pinch to zoom ────────────
+  const active = new Map();
+  let startRotX = 0, startRotY = 0, startX = 0, startY = 0;
+  let pinchD0 = 0, pinchZ0 = 1, lastTap = 0, moved = false;
+
+  const dist2 = () => {
+    const [a, b] = [...active.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+
+  wrap.addEventListener('pointerdown', (e) => {
+    wrap.setPointerCapture(e.pointerId);
+    active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (active.size === 1) {
+      startX = e.clientX; startY = e.clientY;
+      startRotX = S.rotX; startRotY = S.rotY;
+      moved = false;
+    } else if (active.size === 2) {
+      pinchD0 = dist2(); pinchZ0 = S.zoom;
+    }
+  });
+
+  wrap.addEventListener('pointermove', (e) => {
+    if (!active.has(e.pointerId)) return;
+    active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (active.size >= 2) {
+      const d = dist2();
+      if (pinchD0 > 0) {
+        S.zoom = clamp(pinchZ0 * (d / pinchD0), 0.4, 2.5);
+        $('zoom').value = S.zoom; syncOut('zoom'); queueHash();
+      }
+      moved = true;
+      return;
+    }
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if (Math.abs(dx) + Math.abs(dy) > 5) moved = true;
+    if (!moved) return;
+    S.rotY = startRotY + dx * 0.0075;
+    S.rotX = clamp(startRotX + dy * 0.0075, -1.45, 1.45);
+  });
+
+  const up = (e) => {
+    active.delete(e.pointerId);
+    if (active.size < 2) pinchD0 = 0;
+    if (active.size === 0) {
+      if (!moved) {
+        const now = performance.now();
+        if (now - lastTap < 320) reset();
+        lastTap = now;
+      }
+      queueHash();
+    }
+  };
+  wrap.addEventListener('pointerup', up);
+  wrap.addEventListener('pointercancel', up);
+
+  wrap.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    S.zoom = clamp(S.zoom * (e.deltaY < 0 ? 1.08 : 0.926), 0.4, 2.5);
+    $('zoom').value = S.zoom; syncOut('zoom'); queueHash();
+  }, { passive: false });
+
+  // ── keyboard ────────────────────────────────────────
+  const nudgeRange = (k, delta, lo, hi) => {
+    S[k] = clamp(+(S[k] + delta).toFixed(3), lo, hi);
+    $(k).value = S[k]; syncOut(k);
+    if (k === 'density') { effDensity = S.density; rebuild(); }
+    queueHash();
+    say(k + ' ' + fmt[k](S[k]));
+  };
+
+  addEventListener('keydown', (e) => {
+    if (e.target.matches('input, select, textarea')) return;
+    const k = e.key;
+    const step = e.shiftKey ? 0.18 : 0.06;
+    switch (k) {
+      case 'ArrowLeft':  S.rotY -= step; break;
+      case 'ArrowRight': S.rotY += step; break;
+      case 'ArrowUp':    S.rotX = clamp(S.rotX - step, -1.45, 1.45); break;
+      case 'ArrowDown':  S.rotX = clamp(S.rotX + step, -1.45, 1.45); break;
+      case ' ':          $('b-spin').click(); break;
+      case 'r': case 'R': reset(); break;
+      case 'c': case 'C': $('b-copy').click(); break;
+      case 's': case 'S': $('b-share').click(); break;
+      case 'h': case 'H': setPanel(panel.dataset.open !== 'true'); break;
+      case '[': nudgeRange('density', -0.1, 0.35, 2); break;
+      case ']': nudgeRange('density', 0.1, 0.35, 2); break;
+      case '-': case '_': nudgeRange('zoom', -0.1, 0.4, 2.5); break;
+      case '=': case '+': nudgeRange('zoom', 0.1, 0.4, 2.5); break;
+      default:
+        if (k >= '1' && k <= '6') { setObj(OBJ_KEYS[+k - 1]); break; }
+        return;
+    }
+    e.preventDefault();
+    if (k.startsWith('Arrow')) queueHash();
+  });
+
+  // ── boot ────────────────────────────────────────────
+  const shared = fromHash();
+
+  for (const k of ['density', 'zoom', 'dist', 'spin', 'laz', 'lel', 'aspect'])
+    bindRange(k, k === 'density');
+
+  $('ramp').value = S.ramp;
+  $('b-invert').checked = S.invert;
+  syncSpinBtn();
+  for (const c of document.querySelectorAll('#objs .chip'))
+    c.setAttribute('aria-checked', String(c.dataset.obj === S.obj));
+
+  effDensity = S.density;
+  resize();
+  rebuild();
+
+  let resizeT;
+  addEventListener('resize', () => {
+    clearTimeout(resizeT);
+    resizeT = setTimeout(resize, 120);   // mobile URL-bar jitter fires this a lot
+  });
+
+  // start collapsed on short screens so the object gets the room
+  if (innerHeight < 720 || innerWidth < 560) setPanel(false);
+
+  requestAnimationFrame(loop);
+
+  if (shared) toast('Loaded shared state from link');
+  else if (reduced) say('Reduced motion detected — auto-spin starts off');
+})();
+</script>
+</body>
+</html>
