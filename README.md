@@ -17,18 +17,53 @@ Every page links to every other one in the header.
 ## Playtool — `play.html`
 Turns the hard-coded pipeline into something you can drag.
 
-### Objects — 12, in three families
+### Objects — 22, in three families
 | Family | Objects |
 |--------|---------|
-| **Solids** | sphere · cube · cylinder · cone · pyramid · capsule · octahedron · icosahedron |
-| **Rings** | torus · trefoil · spring |
-| **Things** | mug |
+| **Solids** | sphere · cube · cylinder · cone · pyramid · capsule · tetrahedron · octahedron · dodecahedron · icosahedron · prism · gem |
+| **Rings** | torus · trefoil · knot · spring · Möbius |
+| **Things** | mug · gear · vase · bowl · hourglass |
 
-Polyhedra come from a shared `mesh(verts, faces, R)` sampler that lays a
-barycentric lattice over each triangle and shades it flat from the face normal,
-so adding another solid is a vertex list and a face list. Curved solids are
-parametric, with a ring step that keeps arc spacing constant as the radius
-shrinks — cone tips and cylinder caps don't pile up into a hot spot.
+Four generic samplers do the work, so most objects are one line:
+
+- **`solid(verts, R)`** — every polyhedron is *just a list of points*.
+  `hull()` finds the faces itself: for each triple of vertices it tests whether
+  every other vertex lies on one side, gathers the coplanar vertices per face
+  plane, sorts them around the centroid and fan-triangulates. There is no
+  hand-written face table left to get the winding wrong, and a dodecahedron's
+  pentagons come out as three triangles each rather than ten overlapping ones.
+- **`lathe(prof, steps)`** — surface of revolution. `prof(u)` returns
+  `[radius, y]` walking bottom to top; the outward normal is the profile
+  tangent turned a quarter turn, so a profile that doubles back (a bowl's inner
+  wall) gets inward-facing normals for free. Vase, bowl and hourglass are one
+  expression each.
+- **`tube(path, R, …)`** — sweeps a circle along any parametric curve on a
+  parallel-transport frame. Trefoil, spring and the (2,5) torus knot.
+- **`param(fn, …)`** — any parametric patch, normals by finite difference.
+
+Curved primitives are parametric with a `ringStep` that keeps arc spacing
+constant as the radius shrinks, so cone tips and cylinder caps don't pile up
+into a hot spot.
+
+### Shading — seven models
+| Model | What it shows |
+|-------|---------------|
+| **Lambert** | the classic `n · l`, hard terminator |
+| **Half-Lambert** | wrapped to `0.5 + 0.5(n · l)` — lit everywhere, no terminator |
+| **Toon** | Lambert quantised to four bands |
+| **Rim** | fresnel — bright where the surface turns away from the camera |
+| **Specular** | Blinn-Phong highlight over Lambert, **Gloss** sets the exponent |
+| **Depth** | light off entirely; brightness *is* distance |
+| **Normal** | flat north light, `0.5 + 0.5·nᵧ` |
+
+Plus an **Ambient** floor so the dark side keeps some structure. `M` cycles the
+model, `shift+M` goes back.
+
+### Charsets — nine presets and your own
+`a1k0n classic` · `minimal` · **`long`** (the full 69-step gradient, for smooth
+shading) · `blocks` · `dots` · `circles` · `hex` · `line art` · `binary` —
+or pick **custom…** and type your own ramp, light to dark. It travels in the
+share link with everything else. `N` cycles.
 
 ### Distance and the void
 Depth is the thing ASCII normally throws away. Two controls put it back:
@@ -48,11 +83,11 @@ same font size, so the two character grids line up exactly and the void gets its
 own colour and atmospheric mask without a span per glyph.
 
 ### Everything else
-- **Live**: density · zoom · distance (K2) · depth fog · spin · light azimuth/elevation · charset · Y-stretch · invert
-- **Shareable**: all state lives in the URL hash — `play.html#obj=icosa&ramp=2&fog=0.8&vfield=0.7`. Values are clamped on the way in, so a hand-edited link can't hang the tab.
+- **Live**: density · zoom · distance (K2) · depth fog · spin · shading model · light azimuth/elevation · ambient · gloss · charset · Y-stretch · invert
+- **Shareable**: all state lives in the URL hash — `play.html#obj=dodeca&shade=3&ramp=2&fog=0.8&vfield=0.7`. Values are clamped on the way in, so a hand-edited link can't hang the tab.
 - **Copy frame**: current ASCII straight to the clipboard
 - **Auto quality**: thins the point cloud when fps drops below 28, recovers above 55
-- **Keyboard**: `←→↑↓` turn · `space` spin · `R` reset · `C` copy · `S` share · `[` `]` density · `-` `+` zoom · `1`–`9` object · `,` `.` cycle · `V` void · `H` panel
+- **Keyboard**: `←→↑↓` turn · `space` spin · `R` reset · `C` copy · `S` share · `[` `]` density · `-` `+` zoom · `1`–`9` object · `,` `.` cycle object · `M` shading model · `N` charset · `V` void · `H` panel
 - **Touch**: drag to turn · pinch or wheel to zoom · double-tap to reset
 
 See [`UX-REVIEW.md`](./UX-REVIEW.md) for the full review of the three original demos —
