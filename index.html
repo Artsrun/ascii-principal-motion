@@ -2,20 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0a0a0b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="description" content="ASCII principal motion — interactive spinning torus from a1k0n math, real-device tap/drag">
 <title>ASCII · Principal Motion</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0a0b'/%3E%3Ctext x='16' y='23' font-family='monospace' font-size='20' fill='%23a78bfa' text-anchor='middle'%3E@%3C/text%3E%3C/svg%3E">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
-
 :root {
   --bg: #0a0a0b;
   --surface: #141416;
   --text: #e8e8ea;
   --dim: #9a9aa0;
   --faint: #5c5c64;
+  --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace;
   --accent: #a78bfa;
   --accent-soft: rgba(167,139,250,0.15);
   --ok: #34d399;
@@ -29,7 +29,7 @@ html, body {
   height:100%;
   background: var(--bg);
   color: var(--text);
-  font-family: Inter, system-ui, sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   overflow: hidden;
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
@@ -75,7 +75,7 @@ header {
   50% { opacity:0.4; }
 }
 .badge {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--mono);
   font-size: 10px;
   color: var(--dim);
   background: var(--surface);
@@ -94,7 +94,7 @@ header {
 }
 
 #ascii {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--mono);
   font-size: clamp(7px, 2.1vw, 11px);
   line-height: 1.05;
   letter-spacing: 0.02em;
@@ -111,7 +111,7 @@ header {
   position: absolute;
   left: 12px;
   bottom: 12px;
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--mono);
   font-size: 10px;
   color: var(--faint);
   line-height: 1.5;
@@ -149,7 +149,7 @@ header {
   margin-bottom: 10px;
 }
 #overlay code {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--mono);
   font-size: 11px;
   color: #c4b5fd;
   display: block;
@@ -176,6 +176,7 @@ header {
   background: var(--accent);
   color: #0a0a0b;
 }
+.btn { text-decoration: none; display: inline-block; }
 .btn.ghost {
   background: transparent;
   color: var(--dim);
@@ -193,7 +194,7 @@ footer {
   z-index: 5;
 }
 footer .hint {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--mono);
 }
 .dot {
   width: 6px; height: 6px;
@@ -212,17 +213,66 @@ footer .hint {
   pointer-events: none;
   background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.45) 100%);
 }
+
+/* ── shared nav ─────────────────────────────────────── */
+nav {
+  display: flex;
+  gap: 2px;
+  margin-inline: auto 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+nav::-webkit-scrollbar { display: none; }
+nav a {
+  font-size: 11px;
+  color: var(--faint);
+  text-decoration: none;
+  padding: 4px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+nav a:hover { color: var(--dim); background: var(--surface); }
+nav a[aria-current='page'] { color: var(--accent); background: var(--surface); }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.sr {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
 </style>
 </head>
 <body>
 <div id="stage">
   <header>
     <div class="logo"><span></span> ASCII · Principal Motion</div>
+    <nav aria-label="Demos">
+      <a href="./index.html" aria-current="page">Donut</a>
+      <a href="./trefoil.html">Trefoil</a>
+      <a href="./hold.html">Hold</a>
+      <a href="./play.html">Play</a>
+    </nav>
     <div class="badge" id="fps">-- fps</div>
   </header>
 
   <div id="ascii-wrap">
-    <pre id="ascii"></pre>
+    <pre id="ascii" aria-hidden="true"></pre>
     <div id="hud">
       A <span id="va">0.00</span> · B <span id="vb">0.00</span><br>
       samples <span id="vs">~0</span> · <span id="vstate">spin</span>
@@ -230,7 +280,7 @@ footer .hint {
   </div>
 
   <footer>
-    <div><span class="dot on" id="live-dot"></span><span id="status">tap · drag · long-press</span></div>
+    <div><span class="dot on" id="live-dot"></span><span id="status" role="status" aria-live="polite">tap · drag · long-press</span></div>
     <div class="hint">a1k0n math → web</div>
   </footer>
 </div>
@@ -246,7 +296,7 @@ L = Ny − Nz  →  .,-~:;=!*#$@
   <p>Tap = pause/resume · Drag = steer · Double-tap = reset</p>
   <div class="btn-row">
     <button class="btn" id="close-ov">Got it</button>
-    <button class="btn ghost" id="to-points">Points preview</button>
+    <a class="btn ghost" href="./play.html">Open playtool →</a>
   </div>
 </div>
 
@@ -263,7 +313,7 @@ L = Ny − Nz  →  .,-~:;=!*#$@
 
   let A = 0, B = 0;
   let dA = 0.035, dB = 0.015;
-  let paused = false;
+  let paused = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let userAx = 0, userAy = 0;
   let mode = "ascii";
 
@@ -282,10 +332,9 @@ L = Ny − Nz  →  .,-~:;=!*#$@
     const w = window.innerWidth;
     const h = window.innerHeight * 0.72;
     const cellW = Math.max(6, Math.min(11, w / 70));
-    COLS = Math.floor(w / cellW) | 1;
-    ROWS = Math.floor(h / (cellW * 1.6)) | 1;
-    COLS = Math.max(40, Math.min(120, COLS));
-    ROWS = Math.max(18, Math.min(40, ROWS));
+    // clamp first, force odd second — otherwise the clamp can undo the odd centre column
+    COLS = Math.max(41, Math.min(119, Math.floor(w / cellW))) | 1;
+    ROWS = Math.max(19, Math.min(39, Math.floor(h / (cellW * 1.6)))) | 1;
     K1 = COLS * 0.42;
     buf  = new Array(COLS * ROWS);
     zbuf = new Float32Array(COLS * ROWS);
@@ -348,7 +397,28 @@ L = Ny − Nz  →  .,-~:;=!*#$@
 
   let last = performance.now();
   let frames = 0, acc = 0;
+  let running = true, rafId = 0;
+
+  // one rAF chain, ever: restarting without cancelling the pending frame left
+  // two chains running after a tab switch and doubled the work per frame
+  function start() {
+    if (rafId || !running) return;
+    last = performance.now();
+    rafId = requestAnimationFrame(loop);
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      running = false;
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+    } else {
+      running = true;
+      start();
+    }
+  });
+
   function loop(now) {
+    rafId = 0;
+    if (!running) return;
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
 
@@ -372,7 +442,7 @@ L = Ny − Nz  →  .,-~:;=!*#$@
       fpsEl.textContent = Math.round(frames / acc) + " fps";
       frames = 0; acc = 0;
     }
-    requestAnimationFrame(loop);
+    rafId = requestAnimationFrame(loop);
   }
 
   let ptrId = null;
@@ -445,22 +515,25 @@ L = Ny − Nz  →  .,-~:;=!*#$@
   wrap.addEventListener("pointercancel", onUp);
 
   document.getElementById("close-ov").onclick = () => overlay.classList.remove("show");
-  document.getElementById("to-points").onclick = () => {
-    overlay.classList.remove("show");
-    status.textContent = "points mode coming — ASCII is the principal";
-  };
 
   resize();
-  window.addEventListener("resize", () => { resize(); });
-  document.body.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
+  let resizeT;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeT); resizeT = setTimeout(resize, 120);
+  });
+  // scoped to the canvas: blanketing document.body also froze the help
+  // overlay, which is taller than a phone screen and has to scroll
+  wrap.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
 
-  requestAnimationFrame(loop);
+  start();
 
   setTimeout(() => {
-    if (!localStorage.getItem("donut-seen")) {
-      overlay.classList.add("show");
-      localStorage.setItem("donut-seen", "1");
-    }
+    try {
+      if (!localStorage.getItem("donut-seen")) {
+        overlay.classList.add("show");
+        localStorage.setItem("donut-seen", "1");
+      }
+    } catch { overlay.classList.add("show"); }
   }, 900);
 })();
 </script>
