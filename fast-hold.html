@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0a0a0b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="Fast Hold — choose a shape, load surface samples, hold it on a real device. Canvas points first, ASCII optional.">
+<title>ASCII · Fast Hold</title>
+<style>
+:root {
+  --bg: #0a0a0b;
+  --surface: #141416;
+  --surface-2: #1c1c1f;
+  --line: #2a2a2e;
+  --text: #e8e8ea;
+  --dim: #9a9aa0;
+  --faint: #5c5c64;
+  --accent: #a78bfa;
+  --accent-soft: rgba(167,139,250,0.16);
+  --ok: #34d399;
+  --ok-soft: rgba(52,211,153,0.14);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  height:100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Inter, sans-serif;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  touch-action: none;
+}
+#app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--safe-t);
+  padding-bottom: var(--safe-b);
+}
+header {
+  flex: 0 0 auto;
+  padding: 10px 14px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 6;
+}
+.logo {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+.dot.live {
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+}
+.meta {
+  font-family: ui-monospace, "IBM Plex Mono", monospace;
+  font-size: 10px;
+  color: var(--dim);
+  background: var(--surface);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+#stage {
+  flex: 1 1 auto;
+  position: relative;
+  min-height: 0;
+}
+#view {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+#ascii {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-monospace, "IBM Plex Mono", Menlo, monospace;
+  font-size: 8px;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  white-space: pre;
+  color: #d4d4d8;
+  text-align: center;
+  pointer-events: none;
+}
+#ascii.on { display: flex; }
+#empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--dim);
+  pointer-events: none;
+}
+#empty.hide { display: none; }
+#empty b { color: var(--text); font-weight: 600; font-size: 16px; }
+#empty span { font-size: 13px; color: var(--faint); }
+#hud {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--faint);
+  line-height: 1.45;
+  pointer-events: none;
+  background: rgba(10,10,11,0.72);
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+.dock {
+  flex: 0 0 auto;
+  padding: 8px 12px 10px;
+  display: flex;
+  gap: 8px;
+  z-index: 6;
+}
+.dock button {
+  flex: 1 1 0;
+  font: 600 12px/1 ui-sans-serif, system-ui, sans-serif;
+  padding: 12px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--dim);
+  min-height: 44px;
+}
+.dock button.on {
+  background: var(--ok-soft);
+  border-color: var(--ok);
+  color: #a7f3d0;
+}
+.dock button.accent {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: #e9e0ff;
+}
+
+/* choose → load sheet */
+#sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+#sheet.open { pointer-events: auto; }
+#sheet .scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(6,6,8,0.55);
+  opacity: 0;
+  transition: opacity .22s ease;
+}
+#sheet.open .scrim { opacity: 1; }
+#sheet .panel {
+  position: relative;
+  background: #121214;
+  border-top: 1px solid var(--line);
+  border-radius: 20px 20px 0 0;
+  padding: 10px 14px calc(14px + var(--safe-b));
+  transform: translateY(110%);
+  transition: transform .28s cubic-bezier(.2,.8,.2,1);
+}
+#sheet.open .panel { transform: translateY(0); }
+.handle {
+  width: 36px; height: 4px;
+  background: #3a3a40;
+  border-radius: 4px;
+  margin: 2px auto 10px;
+}
+.sheet-h {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.sheet-h h2 { font-size: 15px; font-weight: 650; }
+.sheet-h small { color: var(--faint); font-size: 11px; }
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.card {
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 12px 11px;
+  color: var(--text);
+  min-height: 88px;
+}
+.card:active { transform: scale(0.98); }
+.card.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.card .kicker {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--faint);
+  margin-bottom: 4px;
+}
+.card .name { font-size: 15px; font-weight: 650; }
+.card .desc { font-size: 11px; color: var(--dim); margin-top: 4px; line-height: 1.35; }
+
+#load {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(10,10,11,0.78);
+  backdrop-filter: blur(8px);
+}
+#load.show { display: flex; }
+#load .bar {
+  width: 160px; height: 4px;
+  background: #222;
+  border-radius: 4px;
+  overflow: hidden;
+}
+#load .bar > i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width .18s linear;
+}
+#load p { font-size: 13px; color: var(--dim); }
+#load b { color: var(--text); }
+
+#help {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(10,10,11,0.94);
+  text-align: center;
+}
+#help.show { display: flex; flex-direction: column; }
+#help h2 { font-size: 16px; margin-bottom: 8px; color: var(--accent); }
+#help p { font-size: 13px; color: var(--dim); max-width: 340px; line-height: 1.5; margin-bottom: 8px; }
+#help code {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: #c4b5fd;
+  display: block;
+  text-align: left;
+  background: var(--surface);
+  padding: 10px 12px;
+  border-radius: 8px;
+  line-height: 1.45;
+  margin: 8px 0 12px;
+}
+#help button {
+  font: 600 13px/1 system-ui;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #0a0a0b;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo"><i class="dot" id="live"></i> Fast · Hold</div>
+    <div class="meta" id="fps">idle</div>
+  </header>
+  <div id="stage">
+    <canvas id="view"></canvas>
+    <pre id="ascii"></pre>
+    <div id="empty">
+      <b>Nothing loaded</b>
+      <span>Choose a shape · then hold it</span>
+    </div>
+    <div id="hud">
+      <span id="vobj">—</span> · <span id="vmode">hold</span> · <span id="vdraw">points</span><br>
+      samples <span id="vs">0</span> · shown <span id="vd">0</span>
+    </div>
+  </div>
+  <div class="dock">
+    <button id="btn-shapes" class="accent">Shapes</button>
+    <button id="btn-draw">Points</button>
+    <button id="btn-spin">Spin off</button>
+  </div>
+</div>
+
+<div id="sheet">
+  <div class="scrim" id="scrim"></div>
+  <div class="panel">
+    <div class="handle"></div>
+    <div class="sheet-h">
+      <h2>Choose a shape</h2>
+      <small>load → show</small>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+</div>
+
+<div id="load">
+  <p>sampling <b id="load-name">shape</b></p>
+  <div class="bar"><i id="load-bar"></i></div>
+  <p id="load-note">building surface points</p>
+</div>
+
+<div id="help">
+  <h2>Hold, then look</h2>
+  <p>Pick a shape. It samples a surface, then you hold it. Same projection as the donut — faster draw path first.</p>
+  <code>
+choose → load samples → show<br>
+drag = turn (hold in the hand)<br>
+double-tap = reset<br>
+Points = canvas discs · ASCII = chars
+  </code>
+  <p>Long-press the object for this again.</p>
+  <button id="help-ok">Got it</button>
+</div>
+
+<script>
+(function () {
+  const SHAPES = [
+    { id: "torus",   name: "Torus",   kicker: "R1 circle × R2",     desc: "Classic donut surface" },
+    { id: "trefoil", name: "Trefoil", kicker: "tube on (2,3) path",  desc: "Knot swept as a tube" },
+    { id: "sphere",  name: "Sphere",  kicker: "lat × lon",           desc: "Closed unit-ish ball" },
+    { id: "mug",     name: "Mug",     kicker: "cyl + rim + handle",  desc: "Everyday object stand-in" }
+  ];
+
+  const CHARS = ".,-~:;=!*#$@";
+  const canvas = document.getElementById("view");
+  const ctx = canvas.getContext("2d", { alpha: false });
+  const asciiEl = document.getElementById("ascii");
+  const empty = document.getElementById("empty");
+  const live = document.getElementById("live");
+  const fpsEl = document.getElementById("fps");
+  const vs = document.getElementById("vs");
+  const vd = document.getElementById("vd");
+  const vobj = document.getElementById("vobj");
+  const vmode = document.getElementById("vmode");
+  const vdraw = document.getElementById("vdraw");
+  const sheet = document.getElementById("sheet");
+  const loadEl = document.getElementById("load");
+  const loadName = document.getElementById("load-name");
+  const loadBar = document.getElementById("load-bar");
+  const loadNote = document.getElementById("load-note");
+  const help = document.getElementById("help");
+  const btnShapes = document.getElementById("btn-shapes");
+  const btnDraw = document.getElementById("btn-draw");
+  const btnSpin = document.getElementById("btn-spin");
+
+  let obj = null;
+  let packed = null; // Float32Array xyznxnynz
+  let nPts = 0;
+  let rotX = 0.35, rotY = 0.6;
+  let spinOn = false;
+  let asciiOn = false;
+  let loaded = false;
+  let stride = 1;
+  let K2 = 6.2;
+  let COLS = 72, ROWS = 26, K1 = 32;
+  let asciiBuf, asciiZ;
+
+  const grid = document.getElementById("grid");
+  SHAPES.forEach(s => {
+    const b = document.createElement("button");
+    b.className = "card";
+    b.dataset.id = s.id;
+    b.innerHTML = `<div class="kicker">${s.kicker}</div><div class="name">${s.name}</div><div class="desc">${s.desc}</div>`;
+    grid.appendChild(b);
+  });
+
+  function openSheet() { sheet.classList.add("open"); }
+  function closeSheet() { sheet.classList.remove("open"); }
+
+  function setProgress(p, note) {
+    loadBar.style.width = Math.max(4, Math.min(100, p)) + "%";
+    if (note) loadNote.textContent = note;
+  }
+
+  function waitFrame() {
+    return new Promise(r => requestAnimationFrame(() => r()));
+  }
+
+  function packFromList(list) {
+    const a = new Float32Array(list.length * 6);
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i], o = i * 6;
+      a[o] = p.x; a[o+1] = p.y; a[o+2] = p.z;
+      a[o+3] = p.nx; a[o+4] = p.ny; a[o+5] = p.nz;
+    }
+    return a;
+  }
+
+  function sampleTorus(step) {
+    const out = [];
+    const R1 = 0.55, R2 = 1.35;
+    const dj = step, di = step * 0.85;
+    for (let j = 0; j < 6.2832; j += dj) {
+      const cj = Math.cos(j), sj = Math.sin(j);
+      for (let i = 0; i < 6.2832; i += di) {
+        const ci = Math.cos(i), si = Math.sin(i);
+        const h = R2 + R1 * ci;
+        out.push({ x: h * cj, y: R1 * si, z: -h * sj, nx: ci * cj, ny: si, nz: -ci * sj });
+      }
+    }
+    return out;
+  }
+
+  function sampleTrefoil(step) {
+    const out = [];
+    const R1 = 0.38, sc = 0.78;
+    const dt = step * 0.7, dphi = Math.max(0.18, step * 3.2);
+    for (let t = 0; t < 6.2832; t += dt) {
+      const s = Math.sin(t), c = Math.cos(t);
+      const s2 = Math.sin(2*t), c2 = Math.cos(2*t);
+      const s3 = Math.sin(3*t);
+      const px = sc * (s + 2*s2), py = sc * (c - 2*c2), pz = sc * (-s3);
+      const t2 = t + 0.012;
+      const s_ = Math.sin(t2), c_ = Math.cos(t2);
+      const s2_ = Math.sin(2*t2), c2_ = Math.cos(2*t2);
+      const s3_ = Math.sin(3*t2);
+      let tx = sc*(s_ + 2*s2_) - px, ty = sc*(c_ - 2*c2_) - py, tz = sc*(-s3_) - pz;
+      const tl = Math.hypot(tx,ty,tz) || 1;
+      tx/=tl; ty/=tl; tz/=tl;
+      let nx = -ty, ny = tx, nz = 0;
+      const nl = Math.hypot(nx,ny) || 1;
+      nx/=nl; ny/=nl;
+      let bx = ty*nz - tz*ny, by = tz*nx - tx*nz, bz = tx*ny - ty*nx;
+      const bl = Math.hypot(bx,by,bz) || 1;
+      bx/=bl; by/=bl; bz/=bl;
+      for (let phi = 0; phi < 6.2832; phi += dphi) {
+        const cp = Math.cos(phi), sp = Math.sin(phi);
+        out.push({
+          x: px + R1*(cp*nx + sp*bx),
+          y: py + R1*(cp*ny + sp*by),
+          z: pz + R1*(cp*nz + sp*bz),
+          nx: cp*nx + sp*bx,
+          ny: cp*ny + sp*by,
+          nz: cp*nz + sp*bz
+        });
+      }
+    }
+    return out;
+  }
+
+  function sampleSphere(step) {
+    const out = [];
+    const R = 1.35;
+    for (let j = 0; j < Math.PI; j += step * 1.3) {
+      const sj = Math.sin(j), cj = Math.cos(j);
+      for (let i = 0; i < 6.2832; i += step * 1.3) {
+        const ci = Math.cos(i), si = Math.sin(i);
+        out.push({ x: R*sj*ci, y: R*cj, z: R*sj*si, nx: sj*ci, ny: cj, nz: sj*si });
+      }
+    }
+    return out;
+  }
+
+  function sampleMug(step) {
+    const out = [];
+    const Rb = 0.95, H = 1.55;
+    for (let y = -H/2; y <= H/2; y += step * 1.4) {
+      for (let i = 0; i < 6.2832; i += step * 1.5) {
+        const ci = Math.cos(i), si = Math.sin(i);
+        out.push({ x: Rb*ci, y, z: Rb*si, nx: ci, ny: 0, nz: si });
+      }
+    }
+    const R1 = 0.16, R2 = 0.95;
+    for (let j = 0; j < 6.2832; j += step * 2.1) {
+      const cj = Math.cos(j), sj = Math.sin(j);
+      for (let i = 0; i < 6.2832; i += step * 2.6) {
+        const ci = Math.cos(i), si = Math.sin(i);
+        const h = R2 + R1*ci;
+        out.push({ x: h*cj, y: H/2 + R1*si, z: -h*sj, nx: ci*cj, ny: si, nz: -ci*sj });
+      }
+    }
+    for (let r = 0.1; r < Rb; r += step * 1.8) {
+      for (let i = 0; i < 6.2832; i += step * 2.6) {
+        const ci = Math.cos(i), si = Math.sin(i);
+        out.push({ x: r*ci, y: -H/2, z: r*si, nx: 0, ny: -1, nz: 0 });
+      }
+    }
+    for (let a = -0.9; a < 0.9; a += step * 1.8) {
+      const cx = Rb + 0.55*Math.cos(a);
+      const cy = 0.15*Math.sin(a*1.4);
+      for (let p = 0; p < 6.2832; p += step * 5) {
+        const cp = Math.cos(p), sp = Math.sin(p);
+        out.push({ x: cx + 0.14*cp, y: cy + 0.14*sp, z: 0.14*sp*0.3, nx: cp, ny: sp, nz: 0 });
+      }
+    }
+    return out;
+  }
+
+  const samplers = { torus: sampleTorus, trefoil: sampleTrefoil, sphere: sampleSphere, mug: sampleMug };
+
+  function densityForDevice() {
+    const w = Math.min(window.innerWidth, window.innerHeight);
+    // mid phones: coarser; larger screens: denser
+    if (w < 390) return 0.090;
+    if (w < 430) return 0.075;
+    return 0.062;
+  }
+
+  async function loadShape(id) {
+    const spec = SHAPES.find(s => s.id === id);
+    loadName.textContent = spec.name.toLowerCase();
+    loadEl.classList.add("show");
+    setProgress(8, "opening sampler");
+    await waitFrame();
+    await waitFrame();
+
+    setProgress(28, "surface samples");
+    await waitFrame();
+    const list = samplers[id](densityForDevice());
+
+    setProgress(62, list.length + " points");
+    await waitFrame();
+    packed = packFromList(list);
+    nPts = list.length;
+    obj = id;
+    stride = 1;
+    rotX = 0.35; rotY = 0.6;
+
+    setProgress(88, "ready to hold");
+    await waitFrame();
+    loaded = true;
+    empty.classList.add("hide");
+    live.classList.add("live");
+    vobj.textContent = id;
+    vs.textContent = nPts;
+    document.querySelectorAll(".card").forEach(c => c.classList.toggle("on", c.dataset.id === id));
+    setProgress(100, "shown");
+    await new Promise(r => setTimeout(r, 120));
+    loadEl.classList.remove("show");
+    closeSheet();
+    if (navigator.vibrate) navigator.vibrate(10);
+  }
+
+  function resize() {
+    const stage = document.getElementById("stage");
+    const r = stage.getBoundingClientRect();
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.max(1, (r.width * dpr) | 0);
+    canvas.height = Math.max(1, (r.height * dpr) | 0);
+    canvas.style.width = r.width + "px";
+    canvas.style.height = r.height + "px";
+    const cell = Math.max(6, Math.min(10, r.width / 70));
+    COLS = Math.max(44, Math.min(96, Math.floor(r.width / cell) | 1));
+    ROWS = Math.max(18, Math.min(34, Math.floor(r.height / (cell * 1.55)) | 1));
+    K1 = COLS * 0.46;
+    asciiBuf = new Array(COLS * ROWS);
+    asciiZ = new Float32Array(COLS * ROWS);
+    asciiEl.style.fontSize = cell + "px";
+  }
+
+  function drawPoints(w, h) {
+    ctx.fillStyle = "#0a0a0b";
+    ctx.fillRect(0, 0, w, h);
+    const cx = w * 0.5, cy = h * 0.52;
+    const scale = Math.min(w, h) * 0.42;
+    const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+    const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+    const a = packed;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const size = Math.max(1.4, 2.1 * dpr);
+    let shown = 0;
+    for (let i = 0, k = 0; k < nPts; k += stride, i = k * 6) {
+      const px = a[i], py = a[i+1], pz = a[i+2];
+      const pnx = a[i+3], pny = a[i+4], pnz = a[i+5];
+      let x1 = px * cosY - pz * sinY;
+      let z1 = px * sinY + pz * cosY;
+      let y2 = py * cosX - z1 * sinX;
+      let z2 = py * sinX + z1 * cosX;
+      const D = 1 / (z2 + K2);
+      let nx1 = pnx * cosY - pnz * sinY;
+      let nz1 = pnx * sinY + pnz * cosY;
+      let ny2 = pny * cosX - nz1 * sinX;
+      let nz2 = pny * sinX + nz1 * cosX;
+      const L = ny2 - nz2;
+      const t = Math.max(0, Math.min(1, L * 0.38 + 0.42));
+      const g = (40 + t * 200) | 0;
+      ctx.fillStyle = "rgb(" + g + "," + g + "," + (g + 8) + ")";
+      const sx = cx + scale * D * x1;
+      const sy = cy - scale * 0.92 * D * y2;
+      ctx.fillRect(sx, sy, size, size);
+      shown++;
+    }
+    vd.textContent = shown;
+  }
+
+  function drawAscii() {
+    asciiBuf.fill(" ");
+    asciiZ.fill(0);
+    const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+    const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+    const a = packed;
+    let shown = 0;
+    for (let k = 0; k < nPts; k += stride) {
+      const i = k * 6;
+      const px = a[i], py = a[i+1], pz = a[i+2];
+      const pnx = a[i+3], pny = a[i+4], pnz = a[i+5];
+      let x1 = px * cosY - pz * sinY;
+      let z1 = px * sinY + pz * cosY;
+      let y2 = py * cosX - z1 * sinX;
+      let z2 = py * sinX + z1 * cosX;
+      const D = 1 / (z2 + K2);
+      let nx1 = pnx * cosY - pnz * sinY;
+      let nz1 = pnx * sinY + pnz * cosY;
+      let ny2 = pny * cosX - nz1 * sinX;
+      let nz2 = pny * sinX + nz1 * cosX;
+      const Lraw = ny2 - nz2;
+      const Nidx = Math.max(0, Math.min(11, (Lraw * 7.5 + 3.2) | 0));
+      const xp = (COLS / 2 + K1 * D * x1) | 0;
+      const yp = (ROWS / 2 - (K1 * 0.55) * D * y2) | 0;
+      if (yp >= 0 && yp < ROWS && xp >= 0 && xp < COLS) {
+        const o = xp + COLS * yp;
+        if (D > asciiZ[o]) {
+          asciiZ[o] = D;
+          asciiBuf[o] = CHARS[Nidx];
+          shown++;
+        }
+      }
+    }
+    let out = "";
+    for (let r = 0; r < ROWS; r++) out += asciiBuf.slice(r * COLS, r * COLS + COLS).join("") + "\n";
+    asciiEl.textContent = out;
+    vd.textContent = shown;
+  }
+
+  let last = performance.now();
+  let frames = 0, acc = 0, fps = 30;
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    if (loaded && spinOn) {
+      rotX += 0.012 * dt * 60;
+      rotY += 0.018 * dt * 60;
+    }
+    if (loaded) {
+      if (asciiOn) drawAscii();
+      else drawPoints(canvas.width, canvas.height);
+    }
+    frames++; acc += dt;
+    if (acc >= 0.5) {
+      fps = frames / acc;
+      fpsEl.textContent = Math.round(fps) + " fps";
+      frames = 0; acc = 0;
+      if (fps < 22 && stride < 3) stride++;
+      else if (fps > 48 && stride > 1) stride--;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  let ptrId = null, startX = 0, startY = 0, startT = 0, startRotX = 0, startRotY = 0, moved = false, lastTap = 0, longTimer = null;
+  const stage = document.getElementById("stage");
+
+  stage.addEventListener("pointerdown", e => {
+    if (!loaded || sheet.classList.contains("open")) return;
+    if (ptrId !== null) return;
+    ptrId = e.pointerId;
+    startX = e.clientX; startY = e.clientY; startT = performance.now();
+    startRotX = rotX; startRotY = rotY; moved = false;
+    stage.setPointerCapture(ptrId);
+    longTimer = setTimeout(() => {
+      if (!moved) help.classList.add("show");
+    }, 520);
+  });
+  stage.addEventListener("pointermove", e => {
+    if (e.pointerId !== ptrId) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if (Math.abs(dx) + Math.abs(dy) > 6) {
+      moved = true;
+      clearTimeout(longTimer);
+      rotY = startRotY + dx * 0.0075;
+      rotX = Math.max(-1.45, Math.min(1.45, startRotX + dy * 0.0075));
+    }
+  });
+  function onUp(e) {
+    if (e.pointerId !== ptrId) return;
+    clearTimeout(longTimer);
+    const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
+    if (!moved && dist < 12 && performance.now() - startT < 280) {
+      const t = performance.now();
+      if (t - lastTap < 320) {
+        rotX = 0.35; rotY = 0.6;
+        if (navigator.vibrate) navigator.vibrate([8, 30, 8]);
+      }
+      lastTap = t;
+    }
+    ptrId = null;
+  }
+  stage.addEventListener("pointerup", onUp);
+  stage.addEventListener("pointercancel", onUp);
+
+  grid.addEventListener("click", e => {
+    const card = e.target.closest(".card");
+    if (!card) return;
+    loadShape(card.dataset.id);
+  });
+  document.getElementById("scrim").onclick = () => { if (loaded) closeSheet(); };
+  btnShapes.onclick = () => {
+    if (sheet.classList.contains("open")) { if (loaded) closeSheet(); }
+    else openSheet();
+  };
+  btnDraw.onclick = () => {
+    asciiOn = !asciiOn;
+    btnDraw.textContent = asciiOn ? "ASCII" : "Points";
+    btnDraw.classList.toggle("on", asciiOn);
+    asciiEl.classList.toggle("on", asciiOn);
+    vdraw.textContent = asciiOn ? "ascii" : "points";
+    if (!asciiOn) {
+      ctx.fillStyle = "#0a0a0b";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+  };
+  btnSpin.onclick = () => {
+    spinOn = !spinOn;
+    btnSpin.textContent = spinOn ? "Spin on" : "Spin off";
+    btnSpin.classList.toggle("on", spinOn);
+    vmode.textContent = spinOn ? "spin" : "hold";
+    if (navigator.vibrate) navigator.vibrate(8);
+  };
+  document.getElementById("help-ok").onclick = () => help.classList.remove("show");
+
+  window.addEventListener("resize", resize);
+  document.body.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
+  resize();
+  requestAnimationFrame(loop);
+  openSheet();
+  setTimeout(() => {
+    if (!localStorage.getItem("fast-hold-seen")) {
+      help.classList.add("show");
+      localStorage.setItem("fast-hold-seen", "1");
+    }
+  }, 400);
+})();
+</script>
+</body>
+</html>
