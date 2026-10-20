@@ -126,7 +126,7 @@ hash; everything listed as fixed is in this branch.
   every frame, holding coverage near 3.5% of cells — measured stable across a
   123×25 desktop grid and a 69×69 phone grid.
 
-## Still open
+## Still open (after the second pass)
 
 1. Items 1, 2, 4, 6, 7 from the first pass stand unchanged.
 2. **The parallel-transport frame (item 5) is fixed in `play.html` only.**
@@ -141,3 +141,95 @@ hash; everything listed as fixed is in this branch.
    transport frame, the flat `Float32Array` geometry, fog, and the void; the
    other three have none of it. First-pass item 4 is the blocker — until there
    is an `ascii.js`, every improvement widens the gap.
+
+
+---
+
+# Third pass — ten more objects, seven shading models, ten charsets
+
+## Objects: 12 → 22
+
+New: **tetrahedron · dodecahedron · prism · gem** (Solids),
+**knot · Möbius** (Rings), **gear · vase · bowl · hourglass** (Things).
+
+The interesting part is what *went away*. The previous pass shipped
+hand-written face tables — `[[0,11,5], [0,5,1], …]` for the icosahedron, and
+I checked each triple's winding by hand against a cross product in a
+scratch buffer. That does not scale to a dodecahedron, and a single
+transposed pair is a silently inside-out face.
+
+So faces are now derived. `hull(verts)` takes a bare list of points: for every
+triple it tests whether all remaining vertices lie on one side of that plane,
+keeps the plane if so and orients it outward, then gathers the coplanar
+vertices per plane, sorts them by angle around the plane's centroid and
+fan-triangulates. Every polyhedron is now a vertex list and nothing else.
+
+It is unit-tested against the five Platonic solids before wiring:
+
+| | planes | triangles | outward |
+|---|---|---|---|
+| tetrahedron | 4/4 | 4/4 | ✅ |
+| cube | 6/6 | 12/12 | ✅ |
+| octahedron | 8/8 | 8/8 | ✅ |
+| icosahedron | 20/20 | 20/20 | ✅ |
+| dodecahedron | 12/12 | 36/36 | ✅ |
+
+Two more generic samplers joined `mesh` and `tube`:
+
+- **`lathe(prof, steps)`** — surface of revolution, outward normal taken as the
+  profile tangent turned a quarter turn. Because that falls out of the
+  profile's *direction of travel*, a profile that doubles back gets
+  inward-facing normals with no special case: the bowl's inner wall is the
+  same expression as its outer wall, walked the other way.
+- **`param(fn, …)`** — arbitrary parametric patch, normals by finite
+  difference.
+
+### Fixed during this pass
+
+| # | Finding | Fix |
+|---|---------|-----|
+| 26 | **The Möbius strip rendered as a broken ring.** Modelled as a zero-thickness surface, it goes exactly edge-on twice per loop and disappears there. Geometrically correct, visually a bug — it read as a torus with two chunks missing. Caught by screenshotting it at three angles, not by any assertion. | Sweep a thin rectangle instead: two faces and two edges carried on the `{e, n}` frame that turns a half turn over the loop. That turn *is* the twist, which is why this is the one sweep that must not use the parallel-transport frame. |
+| 27 | **The gear spent 15k of its 27k points on cap fill** at a fixed angular step, so the area near the bore was sampled ~4× denser than the rim needed. | Walk the radius outward with the existing `ringStep` and keep what falls inside a tooth: 27k → 15k points for the same picture. |
+| 28 | **22 chips could only be reached by horizontal scrolling**, with "Hourglass" about four swipes off-screen. | The row wraps above 720px (two lines, everything visible at once) and stays a scroller below it, where wrapping would eat the stage. |
+
+## Shading: one model → seven
+
+Lambert · half-Lambert · toon · rim · specular · depth · normal, plus an
+**Ambient** floor and a **Gloss** exponent. All seven are a branch and a few
+flops in the existing inner loop — no second pass, no extra buffer. Depth mode
+ignores the light entirely and shades purely by distance, which is the void
+field's idea applied to the object itself.
+
+## Charsets: five → nine, plus your own
+
+Added the full **69-step gradient** (the one that makes an ASCII sphere look
+genuinely smooth), **circles**, **hex** and **line art**. The select's last
+entry is **custom…**, which reveals a text field: type any ramp, light to dark,
+and it rides along in the share link. Guarded at both ends — an emptied field
+falls back to a preset rather than dividing the luminance range by −1, and a
+pasted 600-character ramp is cut to 254 because the index buffer is a
+`Uint8Array`.
+
+## Verification
+
+Headless Chromium over 22 objects × 7 models × 10 charsets plus a hostile hash
+(`#density=999&dist=0&ramp=99&shade=99&gloss=1e9&amb=5&obj=nope&charset=<600 chars>`):
+no console or page errors, no ragged rows, void layer aligned to the object
+grid in every frame, 59–65 fps throughout. Desktop and phone viewports both
+clean, no horizontal page scroll.
+
+## Still open (after the third pass)
+
+1. Everything under *Still open (after the second pass)* stands — in
+   particular the parallel-transport frame is still `play.html`-only, and the
+   four files still duplicate each other.
+2. **`hull()` is O(n⁴).** Fine for 20 vertices (~27k operations, once at load),
+   useless past a few hundred. A real incremental hull would be the fix if
+   anyone ever wants a shape with real vertex count.
+3. **Möbius is the heaviest object at 18k points** — it needs dense sampling
+   along `u` or the outer edge gaps. Auto-quality handles a weak device, but a
+   radius-aware `u` step would be better than leaning on it.
+4. **A custom charset containing a space punches holes in the object** — the
+   blank glyph lands mid-ramp and the cell reads as empty even though the
+   z-buffer holds a surface. It is arguably a nice thresholding effect, so it
+   is left alone rather than filtered, but it is a footgun with no warning.
